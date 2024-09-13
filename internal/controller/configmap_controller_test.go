@@ -34,48 +34,48 @@ var _ = Describe("ConfigMap Controller", func() {
 	Context("When Namespace contains sync label", func() {
 		ctx := context.Background()
 		const (
-			testSrcNamespace = "test-src"
-			testSrcConfigMap = "test-config"
-			testLabelKey     = "app"
-			testLabelValue   = "myTestApp"
-			timeout          = time.Second * 10
-			interval         = time.Millisecond * 250
+			testLabelKey   = "app"
+			testLabelValue = "myTestApp"
+			timeout        = time.Second * 10
+			interval       = time.Millisecond * 250
 		)
-		var testSrcNS corev1.Namespace
-		var testSrcCM corev1.ConfigMap
+		testSrcNamespace := corev1.Namespace{
+			ObjectMeta: v1.ObjectMeta{Name: "test-src"},
+		}
+		testSrcConfigMap := corev1.ConfigMap{
+			ObjectMeta: v1.ObjectMeta{
+				Name:      "test-config",
+				Namespace: testSrcNamespace.Name,
+				Annotations: map[string]string{
+					syncKey: fmt.Sprintf("%s=%s", testLabelKey, testLabelValue),
+				},
+			},
+			Data: map[string]string{"HOST": "https://test-fake-kubed.io/"},
+		}
 		BeforeEach(func() {
 			By("Creating test source namespace")
-			testSrcNS = corev1.Namespace{ObjectMeta: v1.ObjectMeta{Name: testSrcNamespace}}
-			err := k8sClient.Create(ctx, &testSrcNS)
+			err := k8sClient.Create(ctx, &testSrcNamespace)
 			Expect(err).ToNot(HaveOccurred())
 			By("Creating test source configMap")
-			testSrcCM = corev1.ConfigMap{
-				ObjectMeta: v1.ObjectMeta{
-					Name:        testSrcConfigMap,
-					Namespace:   testSrcNamespace,
-					Annotations: map[string]string{syncKey: fmt.Sprintf("%s=%s", testLabelKey, testLabelValue)},
-				},
-				Data: map[string]string{"HOST": "https://test-fake-kubed.io/"},
-			}
-			err = k8sClient.Create(ctx, &testSrcCM)
+			err = k8sClient.Create(ctx, &testSrcConfigMap)
 			Expect(err).ToNot(HaveOccurred())
 		})
 		It("should sync configMap to namespace", func() {
 			By("Creating target namespace that with the sync labels")
-			targetNamespace := "test-target"
-			ns := &corev1.Namespace{
+			// targetNamespace := "test-target"
+			targetNamespace := &corev1.Namespace{
 				ObjectMeta: v1.ObjectMeta{
-					Name:   targetNamespace,
+					Name:   "test-target",
 					Labels: map[string]string{testLabelKey: testLabelValue},
 				}}
 			ctx := context.Background()
 			cpConfigMap := &corev1.ConfigMap{}
-			Expect(k8sClient.Create(ctx, ns)).NotTo(HaveOccurred())
-			b, _ := yaml.Marshal(ns)
+			Expect(k8sClient.Create(ctx, targetNamespace)).NotTo(HaveOccurred())
+			b, _ := yaml.Marshal(targetNamespace)
 			log.Println(string(b))
 
 			By("Checking to see if the configmap was synced to target namespace")
-			lookupKey := types.NamespacedName{Name: testSrcConfigMap, Namespace: targetNamespace}
+			lookupKey := types.NamespacedName{Name: testSrcConfigMap.Name, Namespace: targetNamespace.Name}
 			Eventually(func() bool {
 				err := k8sClient.Get(ctx, lookupKey, cpConfigMap)
 				return err == nil
@@ -86,12 +86,12 @@ var _ = Describe("ConfigMap Controller", func() {
 			By("Checking configmap for source label name")
 			v, ok := cpConfigMap.Labels[sourceLabelName]
 			Expect(ok).Should(BeTrue())
-			Expect(v).Should(Equal(testSrcConfigMap))
+			Expect(v).Should(Equal(testSrcConfigMap.Name))
 
 			By("Checking configmap for source label namespace")
 			v, ok = cpConfigMap.Labels[sourceLabelNamespace]
 			Expect(ok).Should(BeTrue())
-			Expect(v).Should(Equal(testSrcNamespace))
+			Expect(v).Should(Equal(testSrcNamespace.Name))
 
 			By("Checking configmap for finalizer")
 			Expect(cpConfigMap.Finalizers).Should(ContainElement(syncFinalizer))
