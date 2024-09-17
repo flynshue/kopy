@@ -211,7 +211,6 @@ func copyConfigMap(src *corev1.ConfigMap, targetNamespace string) *corev1.Config
 			Name:      src.Name,
 			Namespace: targetNamespace,
 			Labels: map[string]string{
-				sourceLabelName:      src.Name,
 				sourceLabelNamespace: src.Namespace,
 			},
 		},
