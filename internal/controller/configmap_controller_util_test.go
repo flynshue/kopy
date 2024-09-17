@@ -3,55 +3,16 @@ package controller
 import (
 	"context"
 	"fmt"
-	"log"
-	"testing"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
-	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
-
-func TestNameLength(t *testing.T) {
-	test1 := generateRandomName()
-	test2 := generateRandomName()
-	log.Println(test1)
-	log.Println(test2)
-	if test1 == test2 {
-		t.Fail()
-	}
-}
 
 type syncLabel struct {
 	key   string
 	value string
-}
-
-func generateRandomName() string {
-	// return faker.Username(fakeopts.WithRandomStringLength(128))
-	// rand.SafeEncodeString()
-	return rand.String(253)
-	// return ""
-}
-
-func createNamespace(name string, label *syncLabel) (*corev1.Namespace, error) {
-	ns := &corev1.Namespace{
-		ObjectMeta: v1.ObjectMeta{
-			Name: name,
-		},
-	}
-	if label != nil {
-		ns.Labels = map[string]string{label.key: label.value}
-	}
-	if err := k8sClient.Create(context.Background(), ns); err != nil {
-		return nil, err
-	}
-	return ns, nil
-}
-
-func getObj(objName, objNamespace string, obj client.Object) error {
-	return k8sClient.Get(context.Background(), types.NamespacedName{Name: objName, Namespace: objNamespace}, obj)
 }
 
 type testClient struct {
