@@ -18,7 +18,6 @@ package controller
 
 import (
 	"context"
-	"fmt"
 	"log"
 	"time"
 
@@ -26,13 +25,11 @@ import (
 	. "github.com/onsi/gomega"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/yaml"
 )
 
-var testSrcNamespace corev1.Namespace
-var testSrcConfigMap corev1.ConfigMap
+var testSrcNamespace *corev1.Namespace
+var testSrcConfigMap *corev1.ConfigMap
 
 const (
 	testLabelKey   = "app"
@@ -47,21 +44,18 @@ var _ = Describe("ConfigMap Controller", Ordered, func() {
 	Context("When Namespace contains sync label", func() {
 		It("should sync configMap to namespace", func() {
 			By("Creating target namespace that with the sync labels")
-			targetNamespace := &corev1.Namespace{
-				ObjectMeta: v1.ObjectMeta{
-					Name:   "test-target",
-					Labels: map[string]string{testLabelKey: testLabelValue},
-				}}
-			ctx := context.Background()
-			cm := &corev1.ConfigMap{}
-			Expect(k8sClient.Create(ctx, targetNamespace)).NotTo(HaveOccurred())
+			tc := NewTestClient(context.Background())
+			targetNamespace, err := tc.CreateNamespace("test-target", &syncLabel{key: testLabelKey, value: testLabelValue})
+			Expect(err).ShouldNot(HaveOccurred())
 			b, _ := yaml.Marshal(targetNamespace)
 			log.Println(string(b))
 
 			By("Checking to see if the configmap was synced to target namespace")
-			lookupKey := types.NamespacedName{Name: testSrcConfigMap.Name, Namespace: targetNamespace.Name}
+			cm := &corev1.ConfigMap{}
+			srcNamespace := testSrcConfigMap.Namespace
+			srcName := testSrcConfigMap.Name
 			Eventually(func() bool {
-				err := k8sClient.Get(ctx, lookupKey, cm)
+				err := tc.GetConfigMap(srcName, targetNamespace.Name, cm)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
 			b, _ = yaml.Marshal(cm)
@@ -81,16 +75,16 @@ var _ = Describe("ConfigMap Controller", Ordered, func() {
 			Expect(cm.Finalizers).Should(ContainElement(syncFinalizer))
 
 			By("Updating source configMap")
-			srcLookupKey := types.NamespacedName{Name: testSrcConfigMap.Name, Namespace: testSrcConfigMap.Namespace}
-			Expect(k8sClient.Get(ctx, srcLookupKey, &testSrcConfigMap)).ShouldNot(HaveOccurred())
+			err = tc.GetConfigMap(srcName, srcNamespace, testSrcConfigMap)
+			Expect(err).ShouldNot(HaveOccurred())
 			data := map[string]string{"HOST": "https://test-fake-kubed.io/foobar"}
 			testSrcConfigMap.Data = data
-			Expect(k8sClient.Update(ctx, &testSrcConfigMap)).ShouldNot(HaveOccurred())
+			Expect(tc.UpdateConfigMap(testSrcConfigMap)).ShouldNot(HaveOccurred())
 
 			By("Checking copy configMap was updated")
 			cm = &corev1.ConfigMap{}
 			Eventually(func() bool {
-				k8sClient.Get(ctx, lookupKey, cm)
+				tc.GetConfigMap(testSrcConfigMap.Name, targetNamespace.Name, cm)
 				return Expect(cm.Data).To(Equal(data))
 			}, timeout, interval)
 		})
@@ -99,56 +93,79 @@ var _ = Describe("ConfigMap Controller", Ordered, func() {
 	Context("When namespace doesn't have sync label", func() {
 		It("Copy configmap is not found", func() {
 			By("Creating namespace without sync labels")
-			ns := corev1.Namespace{
-				ObjectMeta: v1.ObjectMeta{
-					Name: "test-ns-nolabels",
-				},
-			}
-			err := k8sClient.Create(ctx, &ns)
-			Expect(err).ToNot(HaveOccurred())
+			tc := NewTestClient(context.Background())
+			ns, err := tc.CreateNamespace("test-ns-nolabels", nil)
+			Expect(err).ShouldNot(HaveOccurred())
+
 			By("Looking up source configmap in namespace")
-			lookupKey := types.NamespacedName{Name: testSrcConfigMap.Name, Namespace: ns.Name}
-			err = k8sClient.Get(ctx, lookupKey, &corev1.ConfigMap{})
-			if !apierrors.IsNotFound(err) {
-				Fail(err.Error())
-			}
+			err = tc.GetConfigMap(testSrcConfigMap.Name, ns.Name, &corev1.ConfigMap{})
+			Expect(apierrors.IsNotFound(err)).Should(BeTrue())
 		})
 	})
 
-	// Context("When source configMap is deleted")
+	Context("When source configMap is deleted", func() {
+		It("Copy of configMap should remain in the target namespace", func() {
+			By("Create new source configMap")
+			srcNamespace := testSrcNamespace.Name
+			srcName := "deleteme-config"
+			data := map[string]string{"DELETEME": "true"}
+			tc := NewTestClient(context.Background())
+			label := &syncLabel{key: srcNamespace, value: srcName}
+			srccm, err := tc.CreateConfigMap(srcName, srcNamespace, label, data)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(tc.GetConfigMap(srcName, srcNamespace, srccm), timeout, interval).Should(Succeed())
+
+			By("Creating new target namespace with matching labels")
+			ns, err := tc.CreateNamespace("test-target-02", label)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(tc.GetNamespace(ns.Name, ns), timeout, interval).Should(Succeed())
+
+			By("Checking target namespace for configMap copy")
+			var dstConfig corev1.ConfigMap
+			tc.GetConfigMap(srcName, ns.Name, &dstConfig)
+			b, _ := yaml.Marshal(&dstConfig)
+			log.Println(string(b))
+
+			By("Deleting source configMap")
+			Expect(tc.DeleteConfigmap(srccm)).ShouldNot(HaveOccurred())
+			Eventually(func() bool {
+				err := tc.GetConfigMap(srcName, srcNamespace, &corev1.ConfigMap{})
+				return apierrors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+
+			By("Checking copy configMap for finalizers")
+			Expect(tc.GetConfigMap(dstConfig.Name, ns.Name, &dstConfig)).ShouldNot(HaveOccurred())
+			Expect(dstConfig.Finalizers).ShouldNot(ContainElement(syncFinalizer))
+			b, _ = yaml.Marshal(&dstConfig)
+			log.Println(string(b))
+		})
+	})
 
 })
 
 func setUpSourceEnv() {
-	testSrcNamespace = corev1.Namespace{
-		ObjectMeta: v1.ObjectMeta{Name: "test-src"},
-	}
-	testSrcConfigMap = corev1.ConfigMap{
-		ObjectMeta: v1.ObjectMeta{
-			Name:      "test-config",
-			Namespace: testSrcNamespace.Name,
-			Annotations: map[string]string{
-				syncKey: fmt.Sprintf("%s=%s", testLabelKey, testLabelValue),
-			},
-		},
-		Data: map[string]string{"HOST": "https://test-fake-kubed.io/"},
-	}
 	ctx := context.Background()
 	By("Creating test source namespace")
-	err := k8sClient.Create(ctx, &testSrcNamespace)
+	tc := NewTestClient(ctx)
+	var err error
+
+	testSrcNamespace, err = tc.CreateNamespace("test-src", nil)
 	Expect(err).ToNot(HaveOccurred())
 	By("Creating test source configMap")
-	err = k8sClient.Create(ctx, &testSrcConfigMap)
+	data := map[string]string{"HOST": "https://test-fake-kubed.io/"}
+	testSrcConfigMap, err = tc.CreateConfigMap("test-config", "test-src", &syncLabel{key: testLabelKey, value: testLabelValue}, data)
 	Expect(err).ToNot(HaveOccurred())
 }
 
 func cleanUpSourceEnv() {
 	By("Cleaning up test source namespace")
+	tc := NewTestClient(context.Background())
+	err := tc.GetNamespace(testSrcNamespace.Name, testSrcNamespace)
+	Expect(err).ShouldNot(HaveOccurred())
 	Eventually(func() bool {
-		err := k8sClient.Delete(ctx, &testSrcNamespace)
+		err := k8sClient.Delete(ctx, testSrcNamespace)
 		return err == nil
 	}, timeout, interval).Should(BeTrue())
-	testSrcNamespace = corev1.Namespace{}
-	testSrcConfigMap = corev1.ConfigMap{}
-	time.Sleep(time.Second * 5)
+	testSrcNamespace = &corev1.Namespace{}
+	testSrcConfigMap = &corev1.ConfigMap{}
 }
