@@ -132,7 +132,7 @@ func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 func (r *ConfigMapReconciler) sourceDeletion(ctx context.Context, cm *corev1.ConfigMap) error {
-	set := labels.Set(map[string]string{sourceLabelName: cm.Name, sourceLabelNamespace: cm.Namespace})
+	set := labels.Set(map[string]string{sourceLabelNamespace: cm.Namespace})
 	opts := &client.ListOptions{LabelSelector: set.AsSelector()}
 	copies, err := r.listConfigMaps(ctx, opts)
 	if err != nil {
@@ -141,10 +141,15 @@ func (r *ConfigMapReconciler) sourceDeletion(ctx context.Context, cm *corev1.Con
 	log := ctrllog.FromContext(ctx)
 	errs := make([]error, 0, len(copies))
 	for _, cp := range copies {
-		log.Info("need to remove finalizer from copy", "copy.ConfigMap", cp.Name, "copy.Namespace", cp.Namespace)
-		ctrlutil.RemoveFinalizer(&cp, syncFinalizer)
-		if err := r.Update(ctx, &cp); err != nil {
-			errs = append(errs, fmt.Errorf("unable to remove finalizer from copy in namespace %s", cp.Namespace))
+		if cp.Name != cm.Name {
+			continue
+		}
+		if ctrlutil.ContainsFinalizer(&cp, syncFinalizer) {
+			log.Info("need to remove finalizer from copy", "copy.ConfigMap", cp.Name, "copy.Namespace", cp.Namespace)
+			ctrlutil.RemoveFinalizer(&cp, syncFinalizer)
+			if err := r.Update(ctx, &cp); err != nil {
+				errs = append(errs, fmt.Errorf("unable to remove finalizer from copy in namespace %s", cp.Namespace))
+			}
 		}
 	}
 	if len(errs) > 0 {

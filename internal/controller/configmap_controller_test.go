@@ -47,10 +47,10 @@ var _ = Describe("ConfigMap Controller", Ordered, func() {
 		It("should sync configMap to namespace", func() {
 			By("Creating target namespace that with the sync labels")
 			tc := NewTestClient(context.Background())
-			targetNamespace, err := tc.CreateNamespace("test-target", &syncLabel{key: testLabelKey, value: testLabelValue})
+			targetNamespace, err := tc.CreateNamespace("test-target-00", &syncLabel{key: testLabelKey, value: testLabelValue})
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() bool {
-				err := tc.GetNamespace("test-target", targetNamespace)
+				err := tc.GetNamespace(targetNamespace.Name, targetNamespace)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
 			b, _ := yaml.Marshal(targetNamespace)
@@ -120,51 +120,6 @@ var _ = Describe("ConfigMap Controller", Ordered, func() {
 		})
 	})
 
-	Context("When source configMap is deleted", func() {
-		It("Copy of configMap should remain in the target namespace", func() {
-			By("Create new source configMap")
-			srcNamespace := testSrcNamespace.Name
-			srcName := "deleteme-config"
-			data := map[string]string{"DELETEME": "true"}
-			tc := NewTestClient(context.Background())
-			label := &syncLabel{key: srcNamespace, value: srcName}
-			srccm, err := tc.CreateConfigMap(srcName, srcNamespace, label, data)
-			Expect(err).ShouldNot(HaveOccurred())
-			Eventually(tc.GetConfigMap(srcName, srcNamespace, srccm), timeout, interval).Should(Succeed())
-			b, _ := yaml.Marshal(srccm)
-			GinkgoWriter.Println(string(b))
-
-			By("Creating new target namespace with matching labels")
-			ns, err := tc.CreateNamespace("test-target-02", label)
-			Expect(err).ShouldNot(HaveOccurred())
-			Eventually(tc.GetNamespace(ns.Name, ns), timeout, interval).Should(Succeed())
-			b, _ = yaml.Marshal(ns)
-			GinkgoWriter.Println(string(b))
-
-			By("Checking target namespace for configMap copy")
-			var dstConfig corev1.ConfigMap
-			Eventually(func() bool {
-				err := tc.GetConfigMap(srcName, ns.Name, &dstConfig)
-				return err == nil
-			}, timeout, interval).Should(BeTrue())
-			b, _ = yaml.Marshal(&dstConfig)
-			GinkgoWriter.Println(string(b))
-
-			By("Deleting source configMap")
-			Expect(tc.DeleteConfigmap(srccm)).ShouldNot(HaveOccurred())
-			Eventually(func() bool {
-				err := tc.GetConfigMap(srcName, srcNamespace, &corev1.ConfigMap{})
-				return apierrors.IsNotFound(err)
-			}, timeout, interval).Should(BeTrue())
-
-			By("Checking copy configMap for finalizers")
-			Eventually(func() bool {
-				cm := &corev1.ConfigMap{}
-				tc.GetConfigMap(dstConfig.Name, ns.Name, cm)
-				return slices.Contains(cm.Finalizers, syncFinalizer)
-			}, timeout, interval).Should(BeTrue())
-		})
-	})
 	Context("When source configMap name is 253 characters", func() {
 		It("Should successfully sync configMap", func() {
 			By("Creating new source configMap with 253 characters")
@@ -189,6 +144,90 @@ var _ = Describe("ConfigMap Controller", Ordered, func() {
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
 		})
+	})
+
+	Context("Table tests; source configMap is deleted", func() {
+		It("configMap copies should have finalizers removed", func() {
+			By("Creating source configMap to be deleted")
+			src := struct {
+				namespace string
+				name      string
+				label     *syncLabel
+				cmObj     *corev1.ConfigMap
+			}{namespace: testSrcNamespace.Name, name: "deleteme-config-01",
+				label: &syncLabel{key: "fake-kubed-sync", value: "deleteme"},
+			}
+			data := map[string]string{"DELETEME": "true"}
+			c := NewTestClient(context.Background())
+			var err error
+			src.cmObj, err = c.CreateConfigMap(src.name, src.namespace, src.label, data)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(c.GetConfigMap(src.name, src.namespace, src.cmObj), timeout, interval).Should(Succeed())
+			b, _ := yaml.Marshal(src.cmObj)
+
+			By("Creating target namespaces for table tests")
+			GinkgoWriter.Println(string(b))
+			testCases := []struct {
+				namespaceName string
+				nsObj         *corev1.Namespace
+				cmObj         *corev1.ConfigMap
+			}{
+				{namespaceName: "tt-target-01", nsObj: &corev1.Namespace{}, cmObj: &corev1.ConfigMap{}},
+				{namespaceName: "tt-target-02", nsObj: &corev1.Namespace{}, cmObj: &corev1.ConfigMap{}},
+			}
+			for i, tc := range testCases {
+				var err error
+				tc.nsObj, err = c.CreateNamespace(tc.namespaceName, src.label)
+				Expect(err).NotTo(HaveOccurred())
+				Eventually(func() bool {
+					err := c.GetNamespace(tc.namespaceName, tc.nsObj)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+				testCases[i] = tc
+			}
+			By("Verifying target namespaces in table tests")
+			for _, tc := range testCases {
+				b, _ := yaml.Marshal(tc.nsObj)
+				GinkgoWriter.Println(string(b))
+			}
+
+			By("Checking target namespace for configMap copy")
+			for i, tc := range testCases {
+				Eventually(func() bool {
+					err := c.GetConfigMap(src.name, tc.namespaceName, tc.cmObj)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+				testCases[i] = tc
+			}
+			for _, tc := range testCases {
+				b, _ := yaml.Marshal(tc.cmObj)
+				GinkgoWriter.Println(string(b))
+			}
+
+			By("Deleting src configMap")
+			Expect(c.DeleteConfigmap(src.cmObj)).ShouldNot(HaveOccurred())
+			Eventually(func() bool {
+				err := c.GetConfigMap(src.name, src.namespace, &corev1.ConfigMap{})
+				return apierrors.IsNotFound(err)
+			}, timeout, interval).Should(BeTrue())
+
+			By("Checking copy configMap for finalizers")
+			for _, tc := range testCases {
+				Eventually(func() bool {
+					err := c.GetConfigMap(src.name, tc.namespaceName, tc.cmObj)
+					if err != nil {
+						return false
+					}
+					return !slices.Contains(tc.cmObj.Finalizers, syncFinalizer)
+				}, timeout, interval).Should(BeTrue())
+				b, _ := yaml.Marshal(tc.cmObj)
+				GinkgoWriter.Println(string(b))
+			}
+		})
+	})
+
+	Context("When namespace that contains copy is deleted", func() {
+		It("The namespace should be deleted properly", func() {})
 	})
 
 })
