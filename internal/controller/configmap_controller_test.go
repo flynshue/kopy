@@ -14,8 +14,10 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-var testSrcNamespace *corev1.Namespace
-var testSrcConfigMap *corev1.ConfigMap
+var (
+	testSrcNamespace *corev1.Namespace
+	testSrcConfigMap *corev1.ConfigMap
+)
 
 const (
 	testLabelKey   = "app"
