@@ -209,10 +209,46 @@ var _ = Describe("ConfigMap Controller", Ordered, func() {
 			}
 		})
 	})
+	if useKind {
+		Context("When namespace that contains copy is deleted", func() {
+			It("The namespace should be deleted properly", func() {
+				By("Creating new namespace for sync")
+				c := NewTestClient(context.Background())
+				targetNS, err := c.CreateNamespace("test-cm-target-04", nil)
+				Expect(err).ShouldNot(HaveOccurred())
+				Eventually(func() bool {
+					err := c.GetNamespace("test-cm-target-04", targetNS)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+				b, _ := yaml.Marshal(targetNS)
+				GinkgoWriter.Println(string(b))
 
-	Context("When namespace that contains copy is deleted", func() {
-		It("The namespace should be deleted properly", func() {})
-	})
+				By("Creating test configmap")
+				targetCm, err := c.CreateConfigMap("test-target-04-config", targetNS.Name, nil, map[string]string{"host": "https://fakehost.us"})
+				Expect(err).ShouldNot(HaveOccurred())
+				Eventually(func() bool {
+					err := c.GetConfigMap(targetCm.Name, targetNS.Name, targetCm)
+					return err == nil
+				}, timeout, interval).Should(BeTrue())
+				b, _ = yaml.Marshal(targetCm)
+				GinkgoWriter.Println(string(b))
+
+				By("Deleting target namespace")
+				err = c.DeleteNamespace(targetNS)
+				Expect(err).ShouldNot(HaveOccurred())
+				time.Sleep(time.Second * 2)
+				c.GetNamespace(targetNS.Name, targetNS)
+				b, _ = yaml.Marshal(targetNS)
+				GinkgoWriter.Println(string(b))
+
+				time.Sleep(time.Second * 5)
+				c.GetConfigMap(targetCm.Name, targetNS.Name, targetCm)
+				b, _ = yaml.Marshal(targetCm)
+				GinkgoWriter.Println(string(b))
+
+			})
+		})
+	}
 
 })
 

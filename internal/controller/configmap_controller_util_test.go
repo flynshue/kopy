@@ -84,3 +84,7 @@ func (tc testClient) ListConfigMaps(namespace string) ([]corev1.ConfigMap, error
 	}
 	return configMapList.Items, nil
 }
+
+func (tc testClient) DeleteNamespace(ns *corev1.Namespace) error {
+	return k8sClient.Delete(tc.ctx, ns)
+}

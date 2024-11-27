@@ -2,6 +2,7 @@ package controller
 
 import (
 	"context"
+	"flag"
 	"fmt"
 	"path/filepath"
 	"runtime"
@@ -12,6 +13,7 @@ import (
 	. "github.com/onsi/gomega"
 
 	corev1 "k8s.io/api/core/v1"
+	k8s "k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/kubernetes/scheme"
 	"k8s.io/client-go/rest"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -20,8 +22,17 @@ import (
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/log/zap"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+
 	//+kubebuilder:scaffold:imports
+
+	"sigs.k8s.io/kind/pkg/cluster"
+	"sigs.k8s.io/kind/pkg/cmd"
 )
+
+const clusterConfig = `kind: Cluster
+apiVersion: kind.x-k8s.io/v1alpha4
+networking:
+  ipFamily: ipv6`
 
 // These tests use Ginkgo (BDD-style Go testing framework). Refer to
 // http://onsi.github.io/ginkgo/ to learn more about Ginkgo.
@@ -31,6 +42,9 @@ var k8sClient client.Client
 var testEnv *envtest.Environment
 var ctx context.Context
 var cancel context.CancelFunc
+var clientset *k8s.Clientset
+var useKind bool
+var kind *cluster.Provider
 
 func TestControllers(t *testing.T) {
 	RegisterFailHandler(Fail)
@@ -47,6 +61,7 @@ var _ = BeforeSuite(func() {
 	testEnv = &envtest.Environment{
 		CRDDirectoryPaths:     []string{filepath.Join("..", "..", "config", "crd", "bases")},
 		ErrorIfCRDPathMissing: false,
+		UseExistingCluster:    &useKind,
 
 		// The BinaryAssetsDirectory is only required if you want to run the tests directly
 		// without call the makefile target test. If not informed it will look for the
@@ -55,6 +70,16 @@ var _ = BeforeSuite(func() {
 		// the tests directly. When we run make test it will be setup and used automatically.
 		BinaryAssetsDirectory: filepath.Join("..", "..", "bin", "k8s",
 			fmt.Sprintf("1.29.0-%s-%s", runtime.GOOS, runtime.GOARCH)),
+	}
+
+	if useKind {
+		kind = cluster.NewProvider(cluster.ProviderWithLogger(cmd.NewLogger()))
+		err := kind.Create("test",
+			cluster.CreateWithDisplaySalutation(true),
+			cluster.CreateWithDisplayUsage(true),
+			cluster.CreateWithRawConfig([]byte(clusterConfig)),
+		)
+		Expect(err).NotTo(HaveOccurred())
 	}
 
 	var err error
@@ -71,6 +96,10 @@ var _ = BeforeSuite(func() {
 	k8sClient, err = client.New(cfg, client.Options{Scheme: scheme.Scheme})
 	Expect(err).NotTo(HaveOccurred())
 	Expect(k8sClient).NotTo(BeNil())
+
+	clientset, err = k8s.NewForConfig(cfg)
+	Expect(err).NotTo(HaveOccurred())
+	Expect(clientset).NotTo(BeNil())
 
 	k8sManager, err := ctrl.NewManager(cfg, manager.Options{
 		Scheme: scheme.Scheme,
@@ -93,4 +122,11 @@ var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	cancel()
 	Eventually(testEnv.Stop()).WithTimeout(time.Second * 15).Should(Succeed())
+	if useKind {
+		Expect(kind.Delete("test", "")).ShouldNot(HaveOccurred())
+	}
 })
+
+func init() {
+	flag.BoolVar(&useKind, "kind", false, "use kind cluster instead of the envtest k8s cluster")
+}
