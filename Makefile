@@ -28,8 +28,8 @@ BUNDLE_METADATA_OPTS ?= $(BUNDLE_CHANNELS) $(BUNDLE_DEFAULT_CHANNEL)
 # This variable is used to construct full image tags for bundle and catalog images.
 #
 # For example, running 'make bundle-build bundle-push catalog-build catalog-push' will build and push both
-# flynshue.io/fake-kubed-bundle:$VERSION and flynshue.io/fake-kubed-catalog:$VERSION.
-IMAGE_TAG_BASE ?= flynshue.io/fake-kubed
+# flynshue.io/kopy-bundle:$VERSION and flynshue.io/kopy-catalog:$VERSION.
+IMAGE_TAG_BASE ?= flynshue.io/kopy
 
 # BUNDLE_IMG defines the image:tag used for the bundle.
 # You can use it as an arg. (E.g make bundle-build BUNDLE_IMG=<some-registry>/<project-name-bundle>:<tag>)

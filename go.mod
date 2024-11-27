@@ -1,4 +1,4 @@
-module github.com/flynshue/fake-kubed
+module github.com/flynshue/kopy
 
 go 1.21
 

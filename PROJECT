@@ -8,8 +8,8 @@ layout:
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}
-projectName: fake-kubed
-repo: github.com/flynshue/fake-kubed
+projectName: kopy
+repo: github.com/flynshue/kopy
 resources:
 - controller: true
   group: core

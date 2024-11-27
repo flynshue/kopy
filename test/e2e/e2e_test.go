@@ -8,10 +8,10 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 
-	"github.com/flynshue/fake-kubed/test/utils"
+	"github.com/flynshue/kopy/test/utils"
 )
 
-const namespace = "fake-kubed-system"
+const namespace = "kopy-system"
 
 var _ = Describe("controller", Ordered, func() {
 	BeforeAll(func() {
@@ -44,7 +44,7 @@ var _ = Describe("controller", Ordered, func() {
 			var err error
 
 			// projectimage stores the name of the image used in the example
-			var projectimage = "example.com/fake-kubed:v0.0.1"
+			var projectimage = "example.com/kopy:v0.0.1"
 
 			By("building the manager(Operator) image")
 			cmd := exec.Command("make", "docker-build", fmt.Sprintf("IMG=%s", projectimage))

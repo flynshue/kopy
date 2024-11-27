@@ -96,3 +96,17 @@ kubectl apply -f https://raw.githubusercontent.com/<org>/kopy/<tag or branch>/di
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
+## Running tests
+Here's how to run tests using the [envtest](https://book.kubebuilder.io/reference/envtest.html)
+```bash
+$ ginkgo -v ./internal/controller/
+```
+
+> [!IMPORTANT]
+> When running tests with envtest, it will skip tests that involve deleting namespaces due limitations with the envtest https://book.kubebuilder.io/reference/envtest.html#namespace-usage-limitation
+
+Here's how to run tests using kind cluster
+```bash
+$ ginkgo -v ./internal/controller/ -- --kind
+Running Suite: Controller Suite - /home/flynshue/github.com/flynshue/kopy/internal/controller
+```

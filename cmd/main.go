@@ -18,7 +18,7 @@ import (
 	metricsserver "sigs.k8s.io/controller-runtime/pkg/metrics/server"
 	"sigs.k8s.io/controller-runtime/pkg/webhook"
 
-	"github.com/flynshue/fake-kubed/internal/controller"
+	"github.com/flynshue/kopy/internal/controller"
 	//+kubebuilder:scaffold:imports
 )
 

@@ -62,7 +62,7 @@ var _ = Describe("ConfigMap Controller", Ordered, func() {
 			By("Updating source configMap")
 			err = tc.GetConfigMap(srcName, srcNamespace, testSrcConfigMap)
 			Expect(err).ShouldNot(HaveOccurred())
-			data := map[string]string{"HOST": "https://test-fake-kubed.io/foobar"}
+			data := map[string]string{"HOST": "https://test-kopy.io/foobar"}
 			testSrcConfigMap.Data = data
 			err = tc.UpdateConfigMap(testSrcConfigMap)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -139,7 +139,7 @@ var _ = Describe("ConfigMap Controller", Ordered, func() {
 				label     *syncLabel
 				cmObj     *corev1.ConfigMap
 			}{namespace: testSrcNamespace.Name, name: "deleteme-config-01",
-				label: &syncLabel{key: "fake-kubed-sync", value: "deleteme"},
+				label: &syncLabel{key: "kopy-sync", value: "deleteme"},
 			}
 			data := map[string]string{"DELETEME": "true"}
 			c := NewTestClient(context.Background())
@@ -265,7 +265,7 @@ func setUpSourceEnv() {
 	}, timeout, interval).Should(BeTrue())
 
 	By("Creating test source configMap")
-	data := map[string]string{"HOST": "https://test-fake-kubed.io/"}
+	data := map[string]string{"HOST": "https://test-kopy.io/"}
 	testSrcConfigMap, err = tc.CreateConfigMap("test-config", "test-src", &syncLabel{key: testLabelKey, value: testLabelValue}, data)
 	Expect(err).ToNot(HaveOccurred())
 	Eventually(func() bool {
