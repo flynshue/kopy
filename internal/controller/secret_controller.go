@@ -6,7 +6,6 @@ import (
 	"fmt"
 	"strings"
 
-	"gopkg.in/yaml.v2"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -77,10 +76,10 @@ func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctr
 		}
 		log.Info("secret was marked for deletion but was a copy; will trigger sync")
 		if err := r.syncDeletedSecret(ctx, secret); err != nil {
-			log.Error(err, "unable to sync deleted configmap")
+			log.Error(err, "unable to sync deleted secret")
 			return ctrl.Result{}, err
 		}
-		log.Info("successfully synced configmap")
+		log.Info("successfully synced secret")
 		return ctrl.Result{}, nil
 
 	}
@@ -229,21 +228,4 @@ func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 			// builder.WithPredicates(p),
 		).
 		Complete(r)
-}
-
-func secretSyncOptions(s *corev1.Secret) (labels.Selector, bool) {
-	v, ok := s.Annotations[syncKey]
-	if !ok {
-		return nil, false
-	}
-	ls, err := labels.Parse(v)
-	if err != nil {
-		return nil, false
-	}
-	return ls, true
-}
-
-func printSecret(s *corev1.Secret) {
-	b, _ := yaml.Marshal(s)
-	fmt.Println(string(b))
 }
