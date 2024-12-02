@@ -73,7 +73,7 @@ func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 			}
 			return ctrl.Result{}, nil
 		}
-		if r.isNamespaceMarkedForDelete(ctx, req.Namespace) {
+		if isNamespaceMarkedForDelete(ctx, r.Client, req.Namespace) {
 			log.Info("namespace marked for deletion")
 			ctrlutil.RemoveFinalizer(&configMap, syncFinalizer)
 			if err := r.Update(ctx, &configMap); err != nil {
@@ -97,14 +97,14 @@ func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 		if err := r.Update(ctx, &configMap); err != nil {
 			return ctrl.Result{}, err
 		}
-		namespaces, err := r.getSyncNamespaces(ctx, selector)
+		namespaces, err := getSyncNamespaces(ctx, r.Client, selector)
 		if err != nil {
 			log.Error(err, "unable to grab list of namespaces with sync key", "namespace.selector", selector.String())
 			return ctrl.Result{}, err
 		}
 		for _, n := range namespaces {
 			cm := copyConfigMap(&configMap, n.Name)
-			if err := r.syncConfigMap(ctx, cm); err != nil {
+			if err := syncObject(ctx, r.Client, cm); err != nil {
 				log.Error(err, "unable to sync configmap")
 			}
 			log.Info("successfully synced configmap", "target.Namespace", n.Name)
@@ -160,36 +160,9 @@ func (r *ConfigMapReconciler) syncDeletedConfigmap(ctx context.Context, cm corev
 	}
 	if namespaceContainsSyncLabel(srcConfigMap, ns) {
 		cp := copyConfigMap(srcConfigMap, ns.Name)
-		return r.syncConfigMap(ctx, cp)
+		return syncObject(ctx, r.Client, cp)
 	}
 	return fmt.Errorf("namespace: %s is missing the sync labels", ns.Name)
-}
-
-func hasSyncOptions(cm *corev1.ConfigMap) (labels.Selector, bool) {
-	v, ok := cm.Annotations[syncKey]
-	if !ok {
-		return nil, false
-	}
-	ls, err := labels.Parse(v)
-	if err != nil {
-		return nil, false
-	}
-	return ls, true
-}
-
-func (r *ConfigMapReconciler) getSyncNamespaces(ctx context.Context, selector labels.Selector) ([]corev1.Namespace, error) {
-	namespaceList := &corev1.NamespaceList{}
-	opts := &client.ListOptions{LabelSelector: selector}
-	if err := r.List(ctx, namespaceList, opts); err != nil {
-		return nil, fmt.Errorf("unable to list namespaces")
-	}
-	namespaces := make([]corev1.Namespace, len(namespaceList.Items))
-	for i, ns := range namespaceList.Items {
-		if ns.DeletionTimestamp == nil {
-			namespaces[i] = ns
-		}
-	}
-	return namespaces, nil
 }
 
 func copyConfigMap(src *corev1.ConfigMap, targetNamespace string) *corev1.ConfigMap {
@@ -208,22 +181,9 @@ func copyConfigMap(src *corev1.ConfigMap, targetNamespace string) *corev1.Config
 	return dstCM
 }
 
-func (r *ConfigMapReconciler) syncConfigMap(ctx context.Context, duplicate *corev1.ConfigMap) error {
-	if err := r.Create(ctx, duplicate); err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			if err := r.Update(ctx, duplicate); err != nil {
-				return fmt.Errorf("unable to update configmap copy")
-			}
-			return nil
-		}
-		return fmt.Errorf("syncConfigMap(); error creating configmap: %s in namespace: %s", duplicate.Name, duplicate.Namespace)
-	}
-	return nil
-}
-
 func (r *ConfigMapReconciler) watchNamespaces(ctx context.Context, namespace client.Object) []reconcile.Request {
 	log := ctrllog.FromContext(ctx)
-	if r.isNamespaceMarkedForDelete(ctx, namespace.GetName()) {
+	if isNamespaceMarkedForDelete(ctx, r.Client, namespace.GetName()) {
 		return nil
 	}
 	configMaps, err := r.listConfigMaps(ctx, nil)
@@ -251,30 +211,6 @@ func (r *ConfigMapReconciler) watchNamespaces(ctx context.Context, namespace cli
 
 	}
 	return req
-}
-
-func namespaceContainsSyncLabel(cm *corev1.ConfigMap, namespace client.Object) bool {
-	v, ok := cm.Annotations[syncKey]
-	if !ok {
-		return false
-	}
-	label := strings.Split(v, "=")
-	key := label[0]
-	value := label[1]
-	return namespace.GetLabels()[key] == value
-}
-
-func (r *ConfigMapReconciler) isNamespaceMarkedForDelete(ctx context.Context, namespace string) bool {
-	ns := &corev1.Namespace{}
-	if err := r.Get(ctx, types.NamespacedName{Name: namespace, Namespace: namespace}, ns); err != nil {
-		if apierrors.IsNotFound(err) {
-			return true
-		}
-	}
-	if ns.Status.Phase == corev1.NamespaceTerminating {
-		return true
-	}
-	return false
 }
 
 func (r *ConfigMapReconciler) listConfigMaps(ctx context.Context, opts client.ListOption) ([]corev1.ConfigMap, error) {
