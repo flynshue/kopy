@@ -9,7 +9,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
@@ -65,6 +64,7 @@ func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 	}
 	selector, isSource := hasSyncOptions(&configMap)
 
+	// Managed kopy objected that is marked for deletion
 	if configMap.DeletionTimestamp != nil && ctrlutil.ContainsFinalizer(&configMap, syncFinalizer) {
 		log.Info("configmap marked for deletion")
 		if isSource {
@@ -116,15 +116,13 @@ func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (
 }
 
 func (r *ConfigMapReconciler) sourceDeletion(ctx context.Context, cm *corev1.ConfigMap) error {
-	set := labels.Set(map[string]string{sourceLabelNamespace: cm.Namespace})
-	opts := &client.ListOptions{LabelSelector: set.AsSelector()}
-	copies, err := r.listConfigMaps(ctx, opts)
-	if err != nil {
+	copies := &corev1.ConfigMapList{}
+	if err := r.List(ctx, copies, listOptions(cm)); err != nil {
 		return fmt.Errorf("unable to find list of the copies for the source configmap")
 	}
 	log := ctrllog.FromContext(ctx)
-	errs := make([]error, 0, len(copies))
-	for _, cp := range copies {
+	errs := make([]error, 0, len(copies.Items))
+	for _, cp := range copies.Items {
 		if cp.Name != cm.Name {
 			continue
 		}
@@ -186,13 +184,12 @@ func (r *ConfigMapReconciler) watchNamespaces(ctx context.Context, namespace cli
 	if isNamespaceMarkedForDelete(ctx, r.Client, namespace.GetName()) {
 		return nil
 	}
-	configMaps, err := r.listConfigMaps(ctx, nil)
-	if err != nil {
+	configMaps := &corev1.ConfigMapList{}
+	if err := r.List(ctx, configMaps); err != nil {
 		log.Info("unable to grab a list of configmaps")
-		return nil
 	}
-	req := make([]reconcile.Request, len(configMaps))
-	for i, cm := range configMaps {
+	req := make([]reconcile.Request, len(configMaps.Items))
+	for i, cm := range configMaps.Items {
 		v, ok := cm.Annotations[syncKey]
 		if !ok {
 			continue
@@ -211,20 +208,6 @@ func (r *ConfigMapReconciler) watchNamespaces(ctx context.Context, namespace cli
 
 	}
 	return req
-}
-
-func (r *ConfigMapReconciler) listConfigMaps(ctx context.Context, opts client.ListOption) ([]corev1.ConfigMap, error) {
-	configMapList := &corev1.ConfigMapList{}
-	if opts == nil {
-		if err := r.List(ctx, configMapList); err != nil {
-			return nil, err
-		}
-		return configMapList.Items, nil
-	}
-	if err := r.List(ctx, configMapList, opts); err != nil {
-		return nil, err
-	}
-	return configMapList.Items, nil
 }
 
 var p = predicate.Funcs{

@@ -19,9 +19,9 @@ var (
 	testSrcSecret   *corev1.Secret
 )
 
-var _ = Describe("Secret Controller", Ordered, func() {
+var _ = Describe("Secret Controller TEST CASE: \n", Ordered, func() {
 	BeforeAll(setUpSecretSourceEnv)
-	AfterAll(cleanUpSecretSourceEnv)
+	// AfterAll(cleanUpSecretSourceEnv)
 	Context("When Namespace contains sync label", func() {
 		It("should sync secret to namespace", func() {
 			By("Creating target namespace that with the sync labels")
@@ -36,25 +36,25 @@ var _ = Describe("Secret Controller", Ordered, func() {
 			GinkgoWriter.Println(string(b))
 
 			By("Checking to see if the secret was synced to target namespace")
-			secret := &corev1.Secret{}
+			copy := &corev1.Secret{}
 			srcNamespace := testSrcSecret.Namespace
 			srcName := testSrcSecret.Name
 			Eventually(func() bool {
-				err := tc.GetSecret(srcName, targetNamespace.Name, secret)
+				err := tc.GetSecret(srcName, targetNamespace.Name, copy)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
-			b, _ = yaml.Marshal(secret)
+			b, _ = yaml.Marshal(copy)
 			GinkgoWriter.Println(string(b))
 
 			By("Checking secret for source label namespace")
-			v, ok := secret.Labels[sourceLabelNamespace]
+			v, ok := copy.Labels[sourceLabelNamespace]
 			Expect(ok).Should(BeTrue())
-			GinkgoWriter.Printf("secret label: %v\n", secret.Labels)
-			GinkgoWriter.Printf("origin ns: %v\n", testSrcSecretNS)
+			GinkgoWriter.Printf("secret label: %v\n", copy.Labels)
+			GinkgoWriter.Printf("origin ns: %s\n", testSrcSecretNS.Name)
 			Expect(v).Should(Equal(testSrcSecretNS.Name))
 
-			By("Checking secret for finalizer")
-			Expect(secret.Finalizers).Should(ContainElement(syncFinalizer))
+			By("Checking secret copy for finalizer")
+			Expect(copy.Finalizers).Should(ContainElement(syncFinalizer))
 
 			By("Updating source secret")
 			err = tc.GetSecret(srcName, srcNamespace, testSrcSecret)
@@ -70,12 +70,12 @@ var _ = Describe("Secret Controller", Ordered, func() {
 				return Expect(testSrcSecret.Data).Should(Equal(data))
 			}, timeout, interval).Should(BeTrue())
 
-			By("Checking copy secret was updated")
+			By("Checking secret copy was updated")
 			Eventually(func() bool {
-				tc.GetSecret(testSrcSecret.Name, testSrcSecretNS.Name, secret)
-				return reflect.DeepEqual(secret.Data, data)
+				tc.GetSecret(copy.Name, targetNamespace.Name, copy)
+				return reflect.DeepEqual(copy.Data, data)
 			}, timeout, interval).Should(BeTrue())
-			b, _ = yaml.Marshal(secret)
+			b, _ = yaml.Marshal(copy)
 			GinkgoWriter.Println(string(b))
 		})
 	})
@@ -108,23 +108,24 @@ var _ = Describe("Secret Controller", Ordered, func() {
 			srcName := rand.String(253)
 			srcNamespace := testSrcSecretNS.Name
 			label := &syncLabel{key: srcNamespace, value: "testSecretLongNames"}
-			// data := map[string]string{"FOO": "bar"}
 			data := map[string][]byte{"foo.bar": []byte("anothersupersecret")}
 			srcSecret, err := tc.CreateSecret(srcName, srcNamespace, label, data)
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(tc.GetSecret(srcName, srcNamespace, srcSecret), timeout, interval).Should(Succeed())
 
 			By("Creating new target namespace")
-			ns, err := tc.CreateNamespace("test-secret-target-03", label)
+			targetNamespace, err := tc.CreateNamespace("test-secret-target-03", label)
 			Expect(err).ShouldNot(HaveOccurred())
-			Eventually(tc.GetNamespace(ns.Name, ns), timeout, interval).Should(Succeed())
+			Eventually(tc.GetNamespace(targetNamespace.Name, targetNamespace), timeout, interval).Should(Succeed())
 
 			By("Checking for copy of secret")
+			copy := &corev1.Secret{}
 			Eventually(func() bool {
-				s := &corev1.Secret{}
-				err := tc.GetSecret(srcName, ns.Name, s)
+				err := tc.GetSecret(srcName, targetNamespace.Name, copy)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
+			b, _ := yaml.Marshal(copy)
+			GinkgoWriter.Println(string(b))
 		})
 	})
 
@@ -139,7 +140,6 @@ var _ = Describe("Secret Controller", Ordered, func() {
 			}{namespace: testSrcSecretNS.Name, name: "deleteme-secret-01",
 				label: &syncLabel{key: "kopy-sync", value: "deleteme"},
 			}
-			// data := map[string]string{"DELETEME": "true"}
 			data := map[string][]byte{"password": []byte("deleteme")}
 			c := NewTestClient(context.Background())
 			var err error
@@ -147,9 +147,9 @@ var _ = Describe("Secret Controller", Ordered, func() {
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(c.GetSecret(src.name, src.namespace, src.obj), timeout, interval).Should(Succeed())
 			b, _ := yaml.Marshal(src.obj)
+			GinkgoWriter.Println(string(b))
 
 			By("Creating target namespaces for table tests")
-			GinkgoWriter.Println(string(b))
 			testCases := []struct {
 				namespaceName string
 				ns            *corev1.Namespace
@@ -174,7 +174,7 @@ var _ = Describe("Secret Controller", Ordered, func() {
 				GinkgoWriter.Println(string(b))
 			}
 
-			By("Checking target namespace for secret copy")
+			By("Checking target namespaces for secret copy")
 			for i, tc := range testCases {
 				Eventually(func() bool {
 					err := c.GetSecret(src.name, tc.namespaceName, tc.obj)
@@ -211,39 +211,43 @@ var _ = Describe("Secret Controller", Ordered, func() {
 	if useKind {
 		Context("When namespace that contains copy is deleted", func() {
 			It("The namespace should be deleted properly", func() {
-				By("Creating new namespace for sync")
+				By("Creating new target namespace")
 				c := NewTestClient(context.Background())
-				targetNS, err := c.CreateNamespace("test-secret-target-04", nil)
+				targetNamespace, err := c.CreateNamespace("test-secret-target-04", &syncLabel{key: testLabelKey, value: testLabelValue})
 				Expect(err).ShouldNot(HaveOccurred())
 				Eventually(func() bool {
-					err := c.GetNamespace("test-secret-target-04", targetNS)
+					err := c.GetNamespace("test-secret-target-04", targetNamespace)
 					return err == nil
 				}, timeout, interval).Should(BeTrue())
-				b, _ := yaml.Marshal(targetNS)
+				b, _ := yaml.Marshal(targetNamespace)
 				GinkgoWriter.Println(string(b))
 
-				By("Creating test secret")
-				targetSecret, err := c.CreateSecret("test-target-04-secret", targetNS.Name, nil, map[string][]byte{"key": []byte("fakesecret")})
-				Expect(err).ShouldNot(HaveOccurred())
+				By("Checking target namespace for copy")
+				copy := &corev1.Secret{}
 				Eventually(func() bool {
-					err := c.GetSecret(targetSecret.Name, targetNS.Name, targetSecret)
+					err := c.GetSecret(testSrcSecret.Name, targetNamespace.Name, copy)
 					return err == nil
 				}, timeout, interval).Should(BeTrue())
-				b, _ = yaml.Marshal(targetSecret)
+				b, _ = yaml.Marshal(copy)
 				GinkgoWriter.Println(string(b))
 
 				By("Deleting target namespace")
-				err = c.DeleteNamespace(targetNS)
+				err = c.DeleteNamespace(targetNamespace)
 				Expect(err).ShouldNot(HaveOccurred())
-				time.Sleep(time.Second * 2)
-				c.GetNamespace(targetNS.Name, targetNS)
-				b, _ = yaml.Marshal(targetNS)
-				GinkgoWriter.Println(string(b))
 
-				time.Sleep(time.Second * 5)
-				c.GetSecret(targetSecret.Name, targetNS.Name, targetSecret)
-				b, _ = yaml.Marshal(targetSecret)
-				GinkgoWriter.Println(string(b))
+				By("Verify finalizer removed from copy")
+				Eventually(func() bool {
+					s := &corev1.Secret{}
+					c.GetSecret(testSrcSecret.Name, targetNamespace.Name, s)
+					return !slices.Contains(s.Finalizers, syncFinalizer)
+				}, timeout, interval).Should(BeTrue())
+
+				By("Verifying namespace was deleted")
+				Eventually(func() bool {
+					ns := &corev1.Namespace{}
+					err := c.GetNamespace(targetNamespace.Name, ns)
+					return err != nil
+				}, timeout, interval).Should(BeTrue())
 
 			})
 		})

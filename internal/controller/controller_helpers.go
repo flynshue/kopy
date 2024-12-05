@@ -77,3 +77,8 @@ func getSyncNamespaces(ctx context.Context, c client.Client, selector labels.Sel
 	}
 	return namespaces, nil
 }
+
+func listOptions(o client.Object) *client.ListOptions {
+	set := labels.Set(map[string]string{sourceLabelNamespace: o.GetNamespace()})
+	return &client.ListOptions{LabelSelector: set.AsSelector()}
+}
