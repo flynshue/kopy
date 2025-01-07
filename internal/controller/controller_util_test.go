@@ -19,14 +19,18 @@ type testClient struct {
 	ctx context.Context
 }
 
+// NewTestClient creates a new testClient will be used for running test scenarios against cluster
 func NewTestClient(ctx context.Context) testClient {
 	return testClient{ctx: ctx}
 }
 
+// GetNamespace gets namespace object using name and stores it ns
 func (tc testClient) GetNamespace(name string, ns *corev1.Namespace) error {
 	return k8sClient.Get(tc.ctx, types.NamespacedName{Name: name}, ns)
 }
 
+// CreateNamespace will namespace object in cluster using name and will use label as kopy sync label
+// Returns corev1.Namespace object
 func (tc testClient) CreateNamespace(name string, label *syncLabel) (*corev1.Namespace, error) {
 	ns := &corev1.Namespace{
 		ObjectMeta: v1.ObjectMeta{
@@ -42,14 +46,17 @@ func (tc testClient) CreateNamespace(name string, label *syncLabel) (*corev1.Nam
 	return ns, nil
 }
 
+// GetConfigMap retrieves configmap object and stores it cm
 func (tc testClient) GetConfigMap(name, namespace string, cm *corev1.ConfigMap) error {
 	return k8sClient.Get(tc.ctx, types.NamespacedName{Name: name, Namespace: namespace}, cm)
 }
 
+// GetSecret retrieves secret object and stores it s
 func (tc testClient) GetSecret(name, namespace string, s *corev1.Secret) error {
 	return k8sClient.Get(tc.ctx, types.NamespacedName{Name: name, Namespace: namespace}, s)
 }
 
+// CreateConfigMap testing helper function that creates configmap object with name in supplied namespace using the label to create sync annotations
 func (tc testClient) CreateConfigMap(name, namespace string, label *syncLabel, data map[string]string) (*corev1.ConfigMap, error) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
@@ -69,6 +76,7 @@ func (tc testClient) CreateConfigMap(name, namespace string, label *syncLabel, d
 	return cm, nil
 }
 
+// CreateSecret testing helper function that creates secret object with name in supplied namespace using the label to create sync annotations
 func (tc testClient) CreateSecret(name, namespace string, label *syncLabel, data map[string][]byte) (*corev1.Secret, error) {
 	s := &corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
@@ -88,22 +96,27 @@ func (tc testClient) CreateSecret(name, namespace string, label *syncLabel, data
 	return s, nil
 }
 
+// UpdateConfigMap updates cm configmap object against cluster
 func (tc testClient) UpdateConfigMap(cm *corev1.ConfigMap) error {
 	return k8sClient.Update(tc.ctx, cm)
 }
 
+// UpdateSecret updates s secret object against cluster
 func (tc testClient) UpdateSecret(s *corev1.Secret) error {
 	return k8sClient.Update(tc.ctx, s)
 }
 
+// DeleteConfigmap deletes cm configmap object from cluster
 func (tc testClient) DeleteConfigmap(cm *corev1.ConfigMap) error {
 	return k8sClient.Delete(tc.ctx, cm)
 }
 
+// DeleteConfigmap deletes s secret object from cluster
 func (tc testClient) DeleteSecret(s *corev1.Secret) error {
 	return k8sClient.Delete(tc.ctx, s)
 }
 
+// ListConfigMaps returns a list of configmap objects from namespace
 func (tc testClient) ListConfigMaps(namespace string) ([]corev1.ConfigMap, error) {
 	opts := &client.ListOptions{
 		Namespace: namespace,
@@ -116,6 +129,7 @@ func (tc testClient) ListConfigMaps(namespace string) ([]corev1.ConfigMap, error
 	return configMapList.Items, nil
 }
 
+// DeleteNamespace deletes ns namespace object from cluster
 func (tc testClient) DeleteNamespace(ns *corev1.Namespace) error {
 	return k8sClient.Delete(tc.ctx, ns)
 }
