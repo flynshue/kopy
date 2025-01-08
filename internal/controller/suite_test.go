@@ -111,6 +111,13 @@ var _ = BeforeSuite(func() {
 	}).SetupWithManager(k8sManager)
 	Expect(err).NotTo(HaveOccurred())
 
+	Expect(err).NotTo(HaveOccurred())
+	err = (&SecretReconciler{
+		Client: k8sManager.GetClient(),
+		Scheme: k8sManager.GetScheme(),
+	}).SetupWithManager(k8sManager)
+	Expect(err).NotTo(HaveOccurred())
+
 	go func() {
 		defer GinkgoRecover()
 		err = k8sManager.Start(ctx)
@@ -121,7 +128,7 @@ var _ = BeforeSuite(func() {
 var _ = AfterSuite(func() {
 	By("tearing down the test environment")
 	cancel()
-	Eventually(testEnv.Stop()).WithTimeout(time.Second * 15).Should(Succeed())
+	Eventually(testEnv.Stop()).WithTimeout(time.Second * 60).Should(Succeed())
 	if useKind {
 		Expect(kind.Delete("test", "")).ShouldNot(HaveOccurred())
 	}

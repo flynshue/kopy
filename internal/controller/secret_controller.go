@@ -9,57 +9,49 @@ import (
 	"k8s.io/apimachinery/pkg/types"
 	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
-	"sigs.k8s.io/controller-runtime/pkg/event"
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	ctrllog "sigs.k8s.io/controller-runtime/pkg/log"
-	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
-// ConfigMapReconciler reconciles a ConfigMap object
-type ConfigMapReconciler struct {
+// SecretReconciler reconciles a Secret object
+type SecretReconciler struct {
 	client.Client
 	Scheme *runtime.Scheme
 }
 
-const (
-	syncKey              = "flynshue.io/sync"
-	sourceLabelName      = "flynshue.io/origin.name"
-	sourceLabelNamespace = "flynshue.io/origin.namespace"
-	syncFinalizer        = "flynshue.io/finalizer"
-)
-
-//+kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
-//+kubebuilder:rbac:groups=core,resources=configmaps/status,verbs=get;update;patch
-//+kubebuilder:rbac:groups=core,resources=configmaps/finalizers,verbs=update
+//+kubebuilder:rbac:groups=core,resources=secrets,verbs=get;list;watch;create;update;patch;delete
+//+kubebuilder:rbac:groups=core,resources=secrets/status,verbs=get;update;patch
+//+kubebuilder:rbac:groups=core,resources=secrets/finalizers,verbs=update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.
 // TODO(user): Modify the Reconcile function to compare the state specified by
-// the ConfigMap object against the actual cluster state, and then
+// the Secret object against the actual cluster state, and then
 // perform operations to make the cluster state reflect the state specified by
 // the user.
 //
 // For more details, check Reconcile and its Result here:
 // - https://pkg.go.dev/sigs.k8s.io/controller-runtime@v0.17.3/pkg/reconcile
 
-func (r *ConfigMapReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
-	ks := NewKopyConfigMap(ctx, r.Client)
+func (r *SecretReconciler) Reconcile(ctx context.Context, req ctrl.Request) (ctrl.Result, error) {
+	ks := NewKopySecret(ctx, r.Client)
 	return KopyReconcile(ks, req)
 }
 
-func (r *ConfigMapReconciler) watchNamespaces(ctx context.Context, namespace client.Object) []reconcile.Request {
+func (r *SecretReconciler) watchNamespaces(ctx context.Context, namespace client.Object) []reconcile.Request {
 	log := ctrllog.FromContext(ctx)
 	if isNamespaceMarkedForDelete(ctx, r.Client, namespace.GetName()) {
 		return nil
 	}
-	configMaps := &corev1.ConfigMapList{}
-	if err := r.List(ctx, configMaps); err != nil {
+	secrets := &corev1.SecretList{}
+	if err := r.List(ctx, secrets); err != nil {
 		log.Info("unable to grab a list of configmaps")
+		return nil
 	}
-	req := make([]reconcile.Request, len(configMaps.Items))
-	for i, cm := range configMaps.Items {
-		v, ok := cm.Annotations[syncKey]
+	req := make([]reconcile.Request, len(secrets.Items))
+	for i, s := range secrets.Items {
+		v, ok := s.Annotations[syncKey]
 		if !ok {
 			continue
 		}
@@ -69,27 +61,20 @@ func (r *ConfigMapReconciler) watchNamespaces(ctx context.Context, namespace cli
 		nsLabels := namespace.GetLabels()
 		if nsLabels[labelKey] == labelValue {
 			req[i] = reconcile.Request{NamespacedName: types.NamespacedName{
-				Namespace: cm.GetNamespace(),
-				Name:      cm.GetName(),
+				Namespace: s.GetNamespace(),
+				Name:      s.GetName(),
 			}}
-			log.Info("need to add reconile", "source.configMap", cm.GetName(), "source.Namespace", cm.GetNamespace(), "target.Namespace", namespace.GetName())
+			log.Info("need to add reconile", "source.configMap", s.GetName(), "source.Namespace", s.GetNamespace(), "target.Namespace", namespace.GetName())
 		}
 
 	}
 	return req
 }
 
-var p = predicate.Funcs{
-	DeleteFunc: func(e event.DeleteEvent) bool {
-		return !e.DeleteStateUnknown
-
-	},
-}
-
 // SetupWithManager sets up the controller with the Manager.
-func (r *ConfigMapReconciler) SetupWithManager(mgr ctrl.Manager) error {
+func (r *SecretReconciler) SetupWithManager(mgr ctrl.Manager) error {
 	return ctrl.NewControllerManagedBy(mgr).
-		For(&corev1.ConfigMap{}).
+		For(&corev1.Secret{}).
 		Watches(&corev1.Namespace{},
 			handler.EnqueueRequestsFromMapFunc(r.watchNamespaces),
 			// builder.WithPredicates(p),

@@ -14,17 +14,17 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-var _ = Describe("ConfigMap Controller\n", func() {
+var _ = Describe("Secret Controller\n", func() {
 	Context("Namespace contains sync label", func() {
-		It("Should sync source configmap to target namespace", func() {
-			By("Create source namespace and configmap")
+		It("Should sync source secret to target namespace", func() {
+			By("Create source namespace and secret")
 			tc = NewTestClient(context.Background())
 			src := struct {
 				name      string
 				namespace string
-				configMap *corev1.ConfigMap
+				secret    *corev1.Secret
 			}{
-				name: "test-config-00", namespace: "test-src-config-ns-00", configMap: &corev1.ConfigMap{},
+				name: "test-secret-00", namespace: "test-src-secret-ns-00", secret: &corev1.Secret{},
 			}
 			_, err := tc.CreateNamespace(src.namespace, nil)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -33,19 +33,19 @@ var _ = Describe("ConfigMap Controller\n", func() {
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
-			data := map[string]string{"HOST": "https://test-kopy.io/foobar"}
+			data := map[string][]byte{"password": []byte("supersecret")}
 			label := &syncLabel{key: testLabelKey, value: src.name}
-			src.configMap, err = tc.CreateConfigMap(src.name, src.namespace, label, data)
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				err = tc.GetConfigMap(src.name, src.namespace, src.configMap)
+				err = tc.GetSecret(src.name, src.namespace, src.secret)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
-			b, _ := yaml.Marshal(src.configMap)
+			b, _ := yaml.Marshal(src.secret)
 			GinkgoWriter.Println(string(b))
 
 			By("Create target namespace with sync labels")
-			targetNamespace, err := tc.CreateNamespace("test-target-config-ns-00", label)
+			targetNamespace, err := tc.CreateNamespace("test-target-secret-ns-00", label)
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() bool {
 				err := tc.GetNamespace(targetNamespace.Name, targetNamespace)
@@ -54,26 +54,26 @@ var _ = Describe("ConfigMap Controller\n", func() {
 			b, _ = yaml.Marshal(targetNamespace)
 			GinkgoWriter.Println(string(b))
 
-			By("Check target namespace for synced configMap")
-			copy := &corev1.ConfigMap{}
+			By("Check target namespace for synced secret")
+			copy := &corev1.Secret{}
 			Eventually(func() bool {
-				err := tc.GetConfigMap(src.name, targetNamespace.Name, copy)
+				err := tc.GetSecret(src.name, targetNamespace.Name, copy)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
 			b, _ = yaml.Marshal(copy)
 			GinkgoWriter.Println(string(b))
 
-			By("Update source configMap data")
-			Expect(tc.GetConfigMap(src.name, src.namespace, src.configMap)).ShouldNot(HaveOccurred())
-			src.configMap.Data = map[string]string{"HOST": "https://test-kopy.io/"}
-			Expect(tc.UpdateConfigMap(src.configMap)).ShouldNot(HaveOccurred())
-			b, _ = yaml.Marshal(src.configMap)
+			By("Update source secret data")
+			Expect(tc.GetSecret(src.name, src.namespace, src.secret)).ShouldNot(HaveOccurred())
+			src.secret.Data = map[string][]byte{"password": []byte("newsupersecret")}
+			Expect(tc.UpdateSecret(src.secret)).ShouldNot(HaveOccurred())
+			b, _ = yaml.Marshal(src.secret)
 			GinkgoWriter.Println(string(b))
 
-			By("Verify configMap copy in target namespace was updated")
+			By("Verify secret copy in target namespace was updated")
 			Eventually(func() bool {
-				tc.GetConfigMap(src.name, targetNamespace.Name, copy)
-				return reflect.DeepEqual(copy.Data, src.configMap.Data)
+				tc.GetSecret(src.name, targetNamespace.Name, copy)
+				return reflect.DeepEqual(copy.Data, src.secret.Data)
 			}, timeout, interval).Should(BeTrue())
 			b, _ = yaml.Marshal(copy)
 			GinkgoWriter.Println(string(b))
@@ -81,15 +81,15 @@ var _ = Describe("ConfigMap Controller\n", func() {
 		})
 	})
 	Context("Namespace doesn't doesn't contain sync label", func() {
-		It("Should not sync source configMap", func() {
-			By("Create source namespace and configMap")
+		It("Should not sync source secret", func() {
+			By("Create source namespace and secret")
 			tc = NewTestClient(context.Background())
 			src := struct {
 				name      string
 				namespace string
-				configMap *corev1.ConfigMap
+				secret    *corev1.Secret
 			}{
-				name: "test-config-01", namespace: "test-src-config-ns-01", configMap: &corev1.ConfigMap{},
+				name: "test-secret-01", namespace: "test-src-secret-ns-01", secret: &corev1.Secret{},
 			}
 			_, err := tc.CreateNamespace(src.namespace, nil)
 			Expect(err).ShouldNot(HaveOccurred())
@@ -98,19 +98,19 @@ var _ = Describe("ConfigMap Controller\n", func() {
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
-			data := map[string]string{"HOST": "https://test-kopy.io/"}
+			data := map[string][]byte{"password": []byte(src.name)}
 			label := &syncLabel{key: testLabelKey, value: src.name}
-			src.configMap, err = tc.CreateConfigMap(src.name, src.namespace, label, data)
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
-				err = tc.GetConfigMap(src.name, src.namespace, src.configMap)
+				err = tc.GetSecret(src.name, src.namespace, src.secret)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
-			b, _ := yaml.Marshal(src.configMap)
+			b, _ := yaml.Marshal(src.secret)
 			GinkgoWriter.Println(string(b))
 
 			By("Creating Namespace without sync labels")
-			targetNamespace, err := tc.CreateNamespace("test-target-config-ns-01", nil)
+			targetNamespace, err := tc.CreateNamespace("test-target-secret-ns-01", nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() bool {
 				err := tc.GetNamespace(targetNamespace.Name, targetNamespace)
@@ -119,62 +119,62 @@ var _ = Describe("ConfigMap Controller\n", func() {
 			b, _ = yaml.Marshal(targetNamespace)
 			GinkgoWriter.Println(string(b))
 
-			By("Verifying Namespace doesn't contain configMap")
+			By("Verifying Namespace doesn't contain secret")
 			Consistently(func() bool {
-				err := tc.GetConfigMap(src.configMap.Name, targetNamespace.Name, &corev1.ConfigMap{})
+				err := tc.GetSecret(src.secret.Name, targetNamespace.Name, &corev1.Secret{})
 				return apierrors.IsNotFound(err)
 			}, time.Second*2, interval).Should(BeTrue())
 		})
 	})
-	Context("When source configMap name is 253 characters", func() {
+	Context("When source secret name is 253 characters", func() {
 		It("Should successfully sync secret", func() {
 			By("Create source namespace")
 			tc = NewTestClient(context.Background())
 			src := struct {
 				name      string
 				namespace string
-				configMap *corev1.ConfigMap
+				secret    *corev1.Secret
 			}{
-				namespace: "test-src-config-ns-02", configMap: &corev1.ConfigMap{},
+				namespace: "test-src-secret-ns-02", secret: &corev1.Secret{},
 			}
 			_, err := tc.CreateNamespace(src.namespace, nil)
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(tc.GetNamespace(src.namespace, &corev1.Namespace{}), timeout, interval).Should(Succeed())
 
-			By("Creating new source configMap with 253 characters")
+			By("Creating new source secret with 253 characters")
 			src.name = rand.String(253)
 			label := &syncLabel{key: src.namespace, value: "testSecretLongNames"}
-			data := map[string]string{"HOST": "https://test-kopy.io/"}
-			src.configMap, err = tc.CreateConfigMap(src.name, src.namespace, label, data)
+			data := map[string][]byte{"password": []byte("anothersupersecret")}
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
 			Expect(err).ShouldNot(HaveOccurred())
-			Eventually(tc.GetConfigMap(src.name, src.namespace, src.configMap), timeout, interval).Should(Succeed())
-			b, _ := yaml.Marshal(src.configMap)
+			Eventually(tc.GetSecret(src.name, src.namespace, src.secret), timeout, interval).Should(Succeed())
+			b, _ := yaml.Marshal(src.secret)
 			GinkgoWriter.Println(string(b))
 
 			By("Creating new target namespace")
-			targetNamespace, err := tc.CreateNamespace("test-target-config-ns-02", label)
+			targetNamespace, err := tc.CreateNamespace("test-target-secret-ns-02", label)
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(tc.GetNamespace(targetNamespace.Name, targetNamespace), timeout, interval).Should(Succeed())
 
-			By("Checking for target namespace for copy of configMap")
-			targetConfigMap := &corev1.ConfigMap{}
+			By("Checking for target namespace for copy of secret")
+			targetSecret := &corev1.Secret{}
 			Eventually(func() bool {
-				err := tc.GetConfigMap(src.name, targetNamespace.Name, targetConfigMap)
+				err := tc.GetSecret(src.name, targetNamespace.Name, targetSecret)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
-			b, _ = yaml.Marshal(targetConfigMap)
+			b, _ = yaml.Marshal(targetSecret)
 			GinkgoWriter.Println(string(b))
 		})
 	})
-	Context("When source configMap is deleted", func() {
+	Context("When source secret is deleted", func() {
 		It("Should remove the finalizer from the copies", func() {
-			By("Creating Source Namespace and configMap")
+			By("Creating Source Namespace and secret")
 			src := struct {
 				name      string
 				namespace string
-				configMap *corev1.ConfigMap
+				secret    *corev1.Secret
 			}{
-				name: "test-config-03", namespace: "test-src-config-ns-03", configMap: &corev1.ConfigMap{},
+				name: "test-secret-03", namespace: "test-src-secret-ns-03", secret: &corev1.Secret{},
 			}
 			tc = NewTestClient(context.Background())
 			_, err := tc.CreateNamespace(src.namespace, nil)
@@ -182,58 +182,58 @@ var _ = Describe("ConfigMap Controller\n", func() {
 			Eventually(tc.GetNamespace(src.namespace, &corev1.Namespace{}), timeout, interval).Should(Succeed())
 
 			label := &syncLabel{key: testLabelKey, value: src.name}
-			data := map[string]string{"HOST": "https://test-kopy.io/"}
-			src.configMap, err = tc.CreateConfigMap(src.name, src.namespace, label, data)
+			data := map[string][]byte{"password": []byte("deleteme")}
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
 			Expect(err).ToNot(HaveOccurred())
-			Eventually(tc.GetConfigMap(src.name, src.namespace, src.configMap), timeout, interval).Should(Succeed())
+			Eventually(tc.GetSecret(src.name, src.namespace, src.secret), timeout, interval).Should(Succeed())
 
 			By("Creating target namespaces and checking for copies")
 			testCases := []struct {
 				name      string
 				namespace *corev1.Namespace
-				configMap *corev1.ConfigMap
+				secret    *corev1.Secret
 			}{
-				{name: "target-tt-config-01", namespace: &corev1.Namespace{}, configMap: &corev1.ConfigMap{}},
-				{name: "target-tt-config-02", namespace: &corev1.Namespace{}, configMap: &corev1.ConfigMap{}},
-				{name: "target-tt-config-03", namespace: &corev1.Namespace{}, configMap: &corev1.ConfigMap{}},
+				{name: "target-tt-secret-01", namespace: &corev1.Namespace{}, secret: &corev1.Secret{}},
+				{name: "target-tt-secret-02", namespace: &corev1.Namespace{}, secret: &corev1.Secret{}},
+				{name: "target-tt-secret-03", namespace: &corev1.Namespace{}, secret: &corev1.Secret{}},
 			}
 			for _, t := range testCases {
 				t.namespace, err = tc.CreateNamespace(t.name, label)
 				Expect(err).ShouldNot(HaveOccurred())
 				Eventually(tc.GetNamespace(t.name, t.namespace), timeout, interval).Should(Succeed())
 				Eventually(func() bool {
-					tc.GetConfigMap(src.name, t.name, t.configMap)
-					return reflect.DeepEqual(src.configMap.Data, t.configMap.Data)
+					tc.GetSecret(src.name, t.name, t.secret)
+					return reflect.DeepEqual(src.secret.Data, t.secret.Data)
 				}, timeout, interval).Should(BeTrue())
 			}
 
-			By("Deleting source configMap")
-			err = tc.DeleteConfigmap(src.configMap)
+			By("Deleting source secret")
+			err = tc.DeleteSecret(src.secret)
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() bool {
-				err := tc.GetConfigMap(src.name, src.namespace, src.configMap)
+				err := tc.GetSecret(src.name, src.namespace, src.secret)
 				return apierrors.IsNotFound(err)
 			}, timeout, interval).Should(BeTrue())
 
 			By("Verifying finalizer has been removed from copies")
 			for _, t := range testCases {
 				Eventually(func() bool {
-					tc.GetConfigMap(src.name, t.name, t.configMap)
-					return !slices.Contains(t.configMap.Finalizers, syncFinalizer)
+					tc.GetSecret(src.name, t.name, t.secret)
+					return !slices.Contains(t.secret.Finalizers, syncFinalizer)
 				}, timeout, interval).Should(BeTrue())
 			}
 
 		})
 	})
-	Context("When copy configMap is deleted", func() {
+	Context("When copy secret is deleted", func() {
 		It("Should resync the copy to the appropriate namespace", func() {
-			By("Creating Source Namespace and configMap")
+			By("Creating Source Namespace and secret")
 			src := struct {
 				name      string
 				namespace string
-				configMap *corev1.ConfigMap
+				secret    *corev1.Secret
 			}{
-				name: "test-src-config-04", namespace: "test-src-config-ns-04", configMap: &corev1.ConfigMap{},
+				name: "test-src-secret-04", namespace: "test-src-secret-ns-04", secret: &corev1.Secret{},
 			}
 			tc = NewTestClient(context.Background())
 			_, err := tc.CreateNamespace(src.namespace, nil)
@@ -241,36 +241,36 @@ var _ = Describe("ConfigMap Controller\n", func() {
 			Eventually(tc.GetNamespace(src.namespace, &corev1.Namespace{}), timeout, interval).Should(Succeed())
 
 			label := &syncLabel{key: "kopy-sync", value: src.name}
-			data := map[string]string{"HOST": "https://test-kopy.io/"}
-			src.configMap, err = tc.CreateConfigMap(src.name, src.namespace, label, data)
+			data := map[string][]byte{"password": []byte("deleteme")}
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() bool {
-				err := tc.GetConfigMap(src.name, src.namespace, src.configMap)
+				err := tc.GetSecret(src.name, src.namespace, src.secret)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
 
 			By("Creating target namespace")
-			targetNamespace, err := tc.CreateNamespace("test-target-config-ns-04", label)
+			targetNamespace, err := tc.CreateNamespace("test-target-secret-ns-04", label)
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(tc.GetNamespace(targetNamespace.Name, &corev1.Namespace{}), timeout, interval).Should(Succeed())
 
-			By("Verifying copy configMap synced")
-			targetConfigMap := &corev1.ConfigMap{}
+			By("Verifying copy secret synced")
+			targetSecret := &corev1.Secret{}
 			Eventually(func() bool {
-				err := tc.GetConfigMap(src.name, targetNamespace.Name, targetConfigMap)
+				err := tc.GetSecret(src.name, targetNamespace.Name, targetSecret)
 				return err == nil
 			}, timeout, interval).Should(BeTrue())
-			b, _ := yaml.Marshal(targetConfigMap)
+			b, _ := yaml.Marshal(targetSecret)
 			GinkgoWriter.Println(string(b))
 
-			By("Deleting configMap copy from target namespace")
-			Expect(tc.DeleteConfigmap(targetConfigMap)).ShouldNot(HaveOccurred())
+			By("Deleting secret copy from target namespace")
+			Expect(tc.DeleteSecret(targetSecret)).ShouldNot(HaveOccurred())
 
-			By("Verifying that configMap was recreated in the target namespace")
+			By("Verifying that secret was recreated in the target namespace")
 			Eventually(func() bool {
-				newConfig := &corev1.ConfigMap{}
-				tc.GetConfigMap(src.name, targetNamespace.Name, newConfig)
-				return targetConfigMap.UID != newConfig.UID
+				newSecret := &corev1.Secret{}
+				tc.GetSecret(src.name, targetNamespace.Name, newSecret)
+				return targetSecret.UID != newSecret.UID
 			}, timeout, interval).Should(BeTrue())
 
 		})
@@ -278,30 +278,30 @@ var _ = Describe("ConfigMap Controller\n", func() {
 	if useKind {
 		Context("When namespace that contains copy is deleted", func() {
 			It("The namespace should be deleted properly", func() {
-				By("Creating new source namespace and configMap")
+				By("Creating new source namespace and secret")
 				tc = NewTestClient(context.Background())
 				src := struct {
 					name      string
 					namespace string
-					configMap *corev1.ConfigMap
+					secret    *corev1.Secret
 				}{
-					name: "test-src-config-05", namespace: "test-src-config-ns-05", configMap: &corev1.ConfigMap{},
+					name: "test-src-secret-05", namespace: "test-src-secret-ns-05", secret: &corev1.Secret{},
 				}
 				_, err := tc.CreateNamespace(src.namespace, nil)
 				Expect(err).ShouldNot(HaveOccurred())
 				Eventually(tc.GetNamespace(src.namespace, &corev1.Namespace{}), timeout, interval).Should(Succeed())
 				label := &syncLabel{key: testLabelKey, value: src.name}
-				data := map[string]string{"HOST": "https://test-kopy.io/"}
+				data := map[string][]byte{"password": []byte(src.name)}
 
-				src.configMap, err = tc.CreateConfigMap(src.name, src.namespace, label, data)
+				src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
 				Expect(err).ShouldNot(HaveOccurred())
 				Eventually(func() bool {
-					err := tc.GetConfigMap(src.name, src.namespace, src.configMap)
+					err := tc.GetSecret(src.name, src.namespace, src.secret)
 					return err == nil
 				}, timeout, interval).Should(BeTrue())
 
 				By("Creating new target namespace")
-				targetNamespace, err := tc.CreateNamespace("test-target-config-ns-05", label)
+				targetNamespace, err := tc.CreateNamespace("test-target-secret-ns-05", label)
 				Expect(err).ShouldNot(HaveOccurred())
 				Eventually(func() bool {
 					err := tc.GetNamespace(targetNamespace.Name, &corev1.Namespace{})
@@ -309,9 +309,9 @@ var _ = Describe("ConfigMap Controller\n", func() {
 				}, timeout, interval).Should(BeTrue())
 
 				By("Checking target namespace for copy")
-				copy := &corev1.ConfigMap{}
+				copy := &corev1.Secret{}
 				Eventually(func() bool {
-					err := tc.GetConfigMap(src.name, targetNamespace.Name, copy)
+					err := tc.GetSecret(src.name, targetNamespace.Name, copy)
 					return err == nil
 				}, timeout, interval).Should(BeTrue())
 				b, _ := yaml.Marshal(copy)
@@ -322,8 +322,8 @@ var _ = Describe("ConfigMap Controller\n", func() {
 
 				By("Verify finalizer was removed from copy")
 				Eventually(func() bool {
-					copy = &corev1.ConfigMap{}
-					tc.GetConfigMap(src.name, targetNamespace.Name, copy)
+					copy = &corev1.Secret{}
+					tc.GetSecret(src.name, targetNamespace.Name, copy)
 					return !slices.Contains(copy.Finalizers, syncFinalizer)
 				}, timeout, interval).Should(BeTrue())
 
@@ -335,15 +335,15 @@ var _ = Describe("ConfigMap Controller\n", func() {
 
 			})
 		})
-		Context("When namespace with source configMap is deleted", func() {
+		Context("When namespace with source secret is deleted", func() {
 			It("Should remove the finalizer from the copies and delete namespace", func() {
-				By("Creating Source Namespace and configMap")
+				By("Creating Source Namespace and secret")
 				src := struct {
 					name      string
 					namespace string
-					configMap *corev1.ConfigMap
+					secret    *corev1.Secret
 				}{
-					name: "test-config-06", namespace: "test-src-config-ns-06", configMap: &corev1.ConfigMap{},
+					name: "test-secret-06", namespace: "test-src-secret-ns-06", secret: &corev1.Secret{},
 				}
 				tc = NewTestClient(context.Background())
 				_, err := tc.CreateNamespace(src.namespace, nil)
@@ -351,21 +351,21 @@ var _ = Describe("ConfigMap Controller\n", func() {
 				Eventually(tc.GetNamespace(src.namespace, &corev1.Namespace{}), timeout, interval).Should(Succeed())
 
 				label := &syncLabel{key: testLabelKey, value: src.name}
-				data := map[string]string{"HOST": "https://test-kopy.io/"}
-				src.configMap, err = tc.CreateConfigMap(src.name, src.namespace, label, data)
+				data := map[string][]byte{"password": []byte("deleteme")}
+				src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
 				Expect(err).ToNot(HaveOccurred())
-				Eventually(tc.GetConfigMap(src.name, src.namespace, src.configMap), timeout, interval).Should(Succeed())
-				b, _ := yaml.Marshal(src.configMap)
+				Eventually(tc.GetSecret(src.name, src.namespace, src.secret), timeout, interval).Should(Succeed())
+				b, _ := yaml.Marshal(src.secret)
 				GinkgoWriter.Println(string(b))
 
 				By("Creating target namespace and check for copy")
-				targetNamespace, err := tc.CreateNamespace("test-target-config-ns-06", label)
+				targetNamespace, err := tc.CreateNamespace("test-target-secret-ns-06", label)
 				Expect(err).ShouldNot(HaveOccurred())
 				Eventually(tc.GetNamespace(targetNamespace.Name, &corev1.Namespace{}), timeout, interval).Should(Succeed())
-				copy := &corev1.ConfigMap{}
+				copy := &corev1.Secret{}
 				Eventually(func() bool {
-					tc.GetConfigMap(src.name, targetNamespace.Name, copy)
-					return reflect.DeepEqual(src.configMap.Data, copy.Data)
+					tc.GetSecret(src.name, targetNamespace.Name, copy)
+					return reflect.DeepEqual(src.secret.Data, copy.Data)
 				}, timeout, interval).Should(BeTrue())
 				b, _ = yaml.Marshal(copy)
 				GinkgoWriter.Println(string(b))
@@ -378,8 +378,8 @@ var _ = Describe("ConfigMap Controller\n", func() {
 
 				By("Verify finalizer has been removed from copy")
 				Eventually(func() bool {
-					copy = &corev1.ConfigMap{}
-					tc.GetConfigMap(src.name, targetNamespace.Name, copy)
+					copy = &corev1.Secret{}
+					tc.GetSecret(src.name, targetNamespace.Name, copy)
 					return !slices.Contains(copy.Finalizers, syncFinalizer)
 				}, timeout, interval).Should(BeTrue())
 				b, _ = yaml.Marshal(copy)

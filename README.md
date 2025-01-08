@@ -110,3 +110,13 @@ Here's how to run tests using kind cluster
 $ ginkgo -v ./internal/controller/ -- --kind
 Running Suite: Controller Suite - /home/flynshue/github.com/flynshue/kopy/internal/controller
 ```
+
+To run operator locally on cluster
+```bash
+$ make run
+/home/flynshue/github.com/flynshue/kopy/bin/controller-gen-v0.14.0 rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+/home/flynshue/github.com/flynshue/kopy/bin/controller-gen-v0.14.0 object:headerFile="hack/boilerplate.go.txt" paths="./..."
+go fmt ./...
+go vet ./...
+go run ./cmd/main.go
+```
