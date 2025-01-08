@@ -3,11 +3,23 @@ package controller
 import (
 	"context"
 	"fmt"
+	"time"
 
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"sigs.k8s.io/controller-runtime/pkg/client"
+)
+
+const (
+	testLabelKey   = "app"
+	testLabelValue = "myTestApp"
+	timeout        = time.Second * 10
+	interval       = time.Millisecond * 250
+)
+
+var (
+	tc testClient
 )
 
 type syncLabel struct {

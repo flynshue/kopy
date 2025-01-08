@@ -14,10 +14,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-var (
-	tc testClient
-)
-
 var _ = Describe("Secret Controller\n", func() {
 	Context("Namespace contains sync label", func() {
 		It("Should sync source secret to target namespace", func() {
@@ -178,7 +174,7 @@ var _ = Describe("Secret Controller\n", func() {
 				namespace string
 				secret    *corev1.Secret
 			}{
-				name: "test-secret-03", namespace: "test-src-secret-ns-03",
+				name: "test-secret-03", namespace: "test-src-secret-ns-03", secret: &corev1.Secret{},
 			}
 			tc = NewTestClient(context.Background())
 			_, err := tc.CreateNamespace(src.namespace, nil)
@@ -347,7 +343,7 @@ var _ = Describe("Secret Controller\n", func() {
 					namespace string
 					secret    *corev1.Secret
 				}{
-					name: "test-secret-06", namespace: "test-src-secret-ns-06",
+					name: "test-secret-06", namespace: "test-src-secret-ns-06", secret: &corev1.Secret{},
 				}
 				tc = NewTestClient(context.Background())
 				_, err := tc.CreateNamespace(src.namespace, nil)
