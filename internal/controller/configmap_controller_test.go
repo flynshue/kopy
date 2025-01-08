@@ -14,11 +14,6 @@ import (
 	"sigs.k8s.io/yaml"
 )
 
-// var (
-// 	testSrcNamespace *corev1.Namespace
-// 	testSrcConfigMap *corev1.ConfigMap
-// )
-
 var _ = Describe("ConfigMap Controller\n", func() {
 	Context("Namespace contains sync label", func() {
 		It("Should sync source configmap to target namespace", func() {

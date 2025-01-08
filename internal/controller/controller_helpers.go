@@ -12,19 +12,6 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
-func hasSyncOptions(o client.Object) (labels.Selector, bool) {
-	annotations := o.GetAnnotations()
-	v, ok := annotations[syncKey]
-	if !ok {
-		return nil, false
-	}
-	ls, err := labels.Parse(v)
-	if err != nil {
-		return nil, false
-	}
-	return ls, true
-}
-
 func isNamespaceMarkedForDelete(ctx context.Context, c client.Client, namespace string) bool {
 	ns := &corev1.Namespace{}
 	if err := c.Get(ctx, types.NamespacedName{Name: namespace, Namespace: namespace}, ns); err != nil {
@@ -48,19 +35,6 @@ func namespaceContainsSyncLabel(o client.Object, namespace client.Object) bool {
 	key := label[0]
 	value := label[1]
 	return namespace.GetLabels()[key] == value
-}
-func syncObject(ctx context.Context, c client.Client, duplicate client.Object) error {
-	kind := duplicate.GetObjectKind().GroupVersionKind().Kind
-	if err := c.Create(ctx, duplicate); err != nil {
-		if apierrors.IsAlreadyExists(err) {
-			if err := c.Update(ctx, duplicate); err != nil {
-				return fmt.Errorf("unable to update %s copy", kind)
-			}
-			return nil
-		}
-		return fmt.Errorf("syncObject(); error creating %s: %s in namespace: %s", kind, duplicate.GetName(), duplicate.GetNamespace())
-	}
-	return nil
 }
 
 func getSyncNamespaces(ctx context.Context, c client.Client, selector labels.Selector) ([]corev1.Namespace, error) {
