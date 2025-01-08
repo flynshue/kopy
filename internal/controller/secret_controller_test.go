@@ -35,7 +35,7 @@ var _ = Describe("Secret Controller\n", func() {
 
 			data := map[string][]byte{"password": []byte("supersecret")}
 			label := &syncLabel{key: testLabelKey, value: src.name}
-			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data, corev1.SecretTypeOpaque)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
 				err = tc.GetSecret(src.name, src.namespace, src.secret)
@@ -100,7 +100,7 @@ var _ = Describe("Secret Controller\n", func() {
 
 			data := map[string][]byte{"password": []byte(src.name)}
 			label := &syncLabel{key: testLabelKey, value: src.name}
-			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data, corev1.SecretTypeOpaque)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(func() bool {
 				err = tc.GetSecret(src.name, src.namespace, src.secret)
@@ -145,7 +145,7 @@ var _ = Describe("Secret Controller\n", func() {
 			src.name = rand.String(253)
 			label := &syncLabel{key: src.namespace, value: "testSecretLongNames"}
 			data := map[string][]byte{"password": []byte("anothersupersecret")}
-			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data, corev1.SecretTypeOpaque)
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(tc.GetSecret(src.name, src.namespace, src.secret), timeout, interval).Should(Succeed())
 			b, _ := yaml.Marshal(src.secret)
@@ -183,7 +183,7 @@ var _ = Describe("Secret Controller\n", func() {
 
 			label := &syncLabel{key: testLabelKey, value: src.name}
 			data := map[string][]byte{"password": []byte("deleteme")}
-			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data, corev1.SecretTypeOpaque)
 			Expect(err).ToNot(HaveOccurred())
 			Eventually(tc.GetSecret(src.name, src.namespace, src.secret), timeout, interval).Should(Succeed())
 
@@ -242,7 +242,7 @@ var _ = Describe("Secret Controller\n", func() {
 
 			label := &syncLabel{key: "kopy-sync", value: src.name}
 			data := map[string][]byte{"password": []byte("deleteme")}
-			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data, corev1.SecretTypeOpaque)
 			Expect(err).ShouldNot(HaveOccurred())
 			Eventually(func() bool {
 				err := tc.GetSecret(src.name, src.namespace, src.secret)
@@ -275,6 +275,48 @@ var _ = Describe("Secret Controller\n", func() {
 
 		})
 	})
+	Context("When secret is type dockerconfigjson", func() {
+		It("Should sync the secret to the target namespace", func() {
+			By("Creating new source namespace and secret")
+			tc = NewTestClient(context.Background())
+			src := struct {
+				name      string
+				namespace string
+				secret    *corev1.Secret
+			}{
+				name: "test-src-secret-07", namespace: "test-src-secret-ns-07", secret: &corev1.Secret{},
+			}
+			_, err := tc.CreateNamespace(src.namespace, nil)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(tc.GetNamespace(src.namespace, &corev1.Namespace{}), timeout, interval).Should(Succeed())
+			label := &syncLabel{key: testLabelKey, value: src.name}
+			configJson := `{"auths":{"https://registry.kopy.io":{"username":"kopy","password":"kopysecret"}}}`
+			data := map[string][]byte{corev1.DockerConfigJsonKey: []byte(configJson)}
+
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data, corev1.SecretTypeDockerConfigJson)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(func() bool {
+				err := tc.GetSecret(src.name, src.namespace, src.secret)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+			b, _ := yaml.Marshal(src.secret)
+			GinkgoWriter.Println(string(b))
+
+			By("Creating target namespace")
+			targetNamespace, err := tc.CreateNamespace("test-target-secret-ns-07", label)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(tc.GetNamespace(targetNamespace.Name, &corev1.Namespace{}), timeout, interval).Should(Succeed())
+
+			By("Verifying copy secret synced")
+			targetSecret := &corev1.Secret{}
+			Eventually(func() bool {
+				err := tc.GetSecret(src.name, targetNamespace.Name, targetSecret)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+			b, _ = yaml.Marshal(targetSecret)
+			GinkgoWriter.Println(string(b))
+		})
+	})
 	if useKind {
 		Context("When namespace that contains copy is deleted", func() {
 			It("The namespace should be deleted properly", func() {
@@ -293,7 +335,7 @@ var _ = Describe("Secret Controller\n", func() {
 				label := &syncLabel{key: testLabelKey, value: src.name}
 				data := map[string][]byte{"password": []byte(src.name)}
 
-				src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
+				src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data, corev1.SecretTypeOpaque)
 				Expect(err).ShouldNot(HaveOccurred())
 				Eventually(func() bool {
 					err := tc.GetSecret(src.name, src.namespace, src.secret)
@@ -352,7 +394,7 @@ var _ = Describe("Secret Controller\n", func() {
 
 				label := &syncLabel{key: testLabelKey, value: src.name}
 				data := map[string][]byte{"password": []byte("deleteme")}
-				src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data)
+				src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data, corev1.SecretTypeOpaque)
 				Expect(err).ToNot(HaveOccurred())
 				Eventually(tc.GetSecret(src.name, src.namespace, src.secret), timeout, interval).Should(Succeed())
 				b, _ := yaml.Marshal(src.secret)
