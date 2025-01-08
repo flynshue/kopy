@@ -58,7 +58,7 @@ func (tc testClient) CreateNamespace(name string, label *syncLabel) (*corev1.Nam
 	return ns, nil
 }
 
-// GetConfigMap retrieves configmap object and stores it cm
+// GetConfigMap retrieves ConfigMap object and stores it cm
 func (tc testClient) GetConfigMap(name, namespace string, cm *corev1.ConfigMap) error {
 	return k8sClient.Get(tc.ctx, types.NamespacedName{Name: name, Namespace: namespace}, cm)
 }
@@ -68,7 +68,7 @@ func (tc testClient) GetSecret(name, namespace string, s *corev1.Secret) error {
 	return k8sClient.Get(tc.ctx, types.NamespacedName{Name: name, Namespace: namespace}, s)
 }
 
-// CreateConfigMap testing helper function that creates configmap object with name in supplied namespace using the label to create sync annotations
+// CreateConfigMap testing helper function that creates ConfigMap object with name in supplied namespace using the label to create sync annotations
 func (tc testClient) CreateConfigMap(name, namespace string, label *syncLabel, data map[string]string) (*corev1.ConfigMap, error) {
 	cm := &corev1.ConfigMap{
 		ObjectMeta: v1.ObjectMeta{
@@ -128,7 +128,7 @@ func (tc testClient) DeleteSecret(s *corev1.Secret) error {
 	return k8sClient.Delete(tc.ctx, s)
 }
 
-// ListConfigMaps returns a list of configmap objects from namespace
+// ListConfigMaps returns a list of ConfigMap objects from namespace
 func (tc testClient) ListConfigMaps(namespace string) ([]corev1.ConfigMap, error) {
 	opts := &client.ListOptions{
 		Namespace: namespace,

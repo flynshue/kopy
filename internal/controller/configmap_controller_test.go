@@ -266,7 +266,6 @@ var _ = Describe("ConfigMap Controller\n", func() {
 			By("Deleting configMap copy from target namespace")
 			Expect(tc.DeleteConfigmap(targetConfigMap)).ShouldNot(HaveOccurred())
 
-			// failed test
 			By("Verifying that configMap was recreated in the target namespace")
 			Eventually(func() bool {
 				newConfig := &corev1.ConfigMap{}
