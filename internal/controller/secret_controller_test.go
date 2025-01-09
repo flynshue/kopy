@@ -1,7 +1,16 @@
 package controller
 
 import (
+	"bytes"
 	"context"
+	"crypto/rsa"
+	"crypto/x509"
+	"crypto/x509/pkix"
+	"encoding/pem"
+	"fmt"
+	"math"
+	"math/big"
+	"net"
 	"reflect"
 	"slices"
 	"time"
@@ -12,6 +21,8 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/util/rand"
 	"sigs.k8s.io/yaml"
+
+	cryptorand "crypto/rand"
 )
 
 var _ = Describe("Secret Controller\n", func() {
@@ -317,6 +328,79 @@ var _ = Describe("Secret Controller\n", func() {
 			GinkgoWriter.Println(string(b))
 		})
 	})
+	Context("When secret is type tls", func() {
+		It("Should sync the secret to the target namespace", func() {
+			By("Creating new source namespace and secret")
+			tc = NewTestClient(context.Background())
+			src := struct {
+				name      string
+				namespace string
+				secret    *corev1.Secret
+			}{
+				name: "test-src-secret-08", namespace: "test-src-secret-ns-08", secret: &corev1.Secret{},
+			}
+			_, err := tc.CreateNamespace(src.namespace, nil)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(tc.GetNamespace(src.namespace, &corev1.Namespace{}), timeout, interval).Should(Succeed())
+			label := &syncLabel{key: testLabelKey, value: src.name}
+			certs, key, err := generateSelfSignedCert("k8s.kopy.io")
+			Expect(err).ShouldNot(HaveOccurred())
+			data := map[string][]byte{
+				corev1.TLSCertKey:       certs,
+				corev1.TLSPrivateKeyKey: key,
+			}
+
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data, corev1.SecretTypeTLS)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(func() bool {
+				err := tc.GetSecret(src.name, src.namespace, src.secret)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+			b, _ := yaml.Marshal(src.secret)
+			GinkgoWriter.Println(string(b))
+			originalCert, err := decodePemCert(src.secret.Data[corev1.TLSCertKey])
+			Expect(err).ShouldNot(HaveOccurred())
+
+			By("Creating target namespace")
+			targetNamespace, err := tc.CreateNamespace("test-target-secret-ns-08", label)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(tc.GetNamespace(targetNamespace.Name, &corev1.Namespace{}), timeout, interval).Should(Succeed())
+
+			By("Verifying copy secret synced")
+			targetSecret := &corev1.Secret{}
+			Eventually(func() bool {
+				err := tc.GetSecret(src.name, targetNamespace.Name, targetSecret)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+			b, _ = yaml.Marshal(targetSecret)
+			GinkgoWriter.Println(string(b))
+
+			By("Update source secret tls certs")
+			Expect(tc.GetSecret(src.name, src.namespace, src.secret)).ShouldNot(HaveOccurred())
+			certs, key, err = generateSelfSignedCert("new.k8s.kopy.io")
+			Expect(err).ShouldNot(HaveOccurred())
+			updatedSecret := src.secret
+			data = map[string][]byte{
+				corev1.TLSCertKey:       certs,
+				corev1.TLSPrivateKeyKey: key,
+			}
+			updatedSecret.Data = data
+			Expect(tc.UpdateSecret(updatedSecret)).ShouldNot(HaveOccurred())
+			Expect(tc.GetSecret(src.name, src.namespace, updatedSecret)).ShouldNot(HaveOccurred())
+			newCert, err := decodePemCert(updatedSecret.Data[corev1.TLSCertKey])
+			Expect(err).ShouldNot(HaveOccurred())
+			Expect(newCert.Equal(originalCert)).Should(BeFalse())
+
+			By("Verify target namespace secret was updated")
+			Eventually(func() bool {
+				copy := &corev1.Secret{}
+				tc.GetSecret(src.name, targetNamespace.Name, copy)
+				copyCert, _ := decodePemCert(copy.Data[corev1.TLSCertKey])
+				return copyCert.Equal(newCert)
+			}, timeout, interval).Should(BeTrue())
+
+		})
+	})
 	if useKind {
 		Context("When namespace that contains copy is deleted", func() {
 			It("The namespace should be deleted properly", func() {
@@ -436,3 +520,85 @@ var _ = Describe("Secret Controller\n", func() {
 		})
 	}
 })
+
+// generateSelfSignedCert helper function used to help generate new selfsigned certs for the test cases
+func generateSelfSignedCert(host string) (certificate, key []byte, err error) {
+	validFrom := time.Now().Add(-time.Hour) // valid an hour earlier to avoid flakes due to clock skew
+	maxAge := time.Hour * 24 * 365          // one year self-signed certs
+	caKey, err := rsa.GenerateKey(cryptorand.Reader, 2048)
+	if err != nil {
+		return nil, nil, err
+	}
+	// returns a uniform random value in [0, max-1), then add 1 to serial to make it a uniform random value in [1, max).
+	serial, err := cryptorand.Int(cryptorand.Reader, new(big.Int).SetInt64(math.MaxInt64-1))
+	if err != nil {
+		return nil, nil, err
+	}
+	serial = new(big.Int).Add(serial, big.NewInt(1))
+	caTemplate := x509.Certificate{
+		SerialNumber: serial,
+		Subject: pkix.Name{
+			CommonName: fmt.Sprintf("%s-ca@%d", host, time.Now().Unix()),
+		},
+		NotBefore: validFrom,
+		NotAfter:  validFrom.Add(maxAge),
+
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature | x509.KeyUsageCertSign,
+		BasicConstraintsValid: true,
+		IsCA:                  true,
+	}
+	caDERBytes, err := x509.CreateCertificate(cryptorand.Reader, &caTemplate, &caTemplate, &caKey.PublicKey, caKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	caCertificate, err := x509.ParseCertificate(caDERBytes)
+	if err != nil {
+		return nil, nil, err
+	}
+	ip := net.ParseIP("127.0.0.1")
+	priv, err := rsa.GenerateKey(cryptorand.Reader, 2048)
+	if err != nil {
+		return nil, nil, err
+	}
+	// returns a uniform random value in [0, max-1), then add 1 to serial to make it a uniform random value in [1, max).
+	serial, err = cryptorand.Int(cryptorand.Reader, new(big.Int).SetInt64(math.MaxInt64-1))
+	if err != nil {
+		return nil, nil, err
+	}
+	serial = new(big.Int).Add(serial, big.NewInt(1))
+	template := x509.Certificate{
+		SerialNumber: serial,
+		Subject: pkix.Name{
+			CommonName: fmt.Sprintf("%s@%d", host, time.Now().Unix()),
+		},
+		NotBefore: validFrom,
+		NotAfter:  validFrom.Add(maxAge),
+
+		KeyUsage:              x509.KeyUsageKeyEncipherment | x509.KeyUsageDigitalSignature,
+		ExtKeyUsage:           []x509.ExtKeyUsage{x509.ExtKeyUsageServerAuth},
+		BasicConstraintsValid: true,
+	}
+	template.IPAddresses = append(template.IPAddresses, ip)
+	derBytes, err := x509.CreateCertificate(cryptorand.Reader, &template, caCertificate, &priv.PublicKey, caKey)
+	if err != nil {
+		return nil, nil, err
+	}
+	certBuffer := bytes.Buffer{}
+	if err := pem.Encode(&certBuffer, &pem.Block{Type: "CERTIFICATE", Bytes: derBytes}); err != nil {
+		return nil, nil, err
+	}
+	keyBuffer := bytes.Buffer{}
+	if err := pem.Encode(&keyBuffer, &pem.Block{Type: "RSA PRIVATE KEY", Bytes: x509.MarshalPKCS1PrivateKey(priv)}); err != nil {
+		return nil, nil, err
+	}
+	return certBuffer.Bytes(), keyBuffer.Bytes(), nil
+}
+
+// decodePemCert will return the first certificate from the pem block.  This is only used for the test cases.
+func decodePemCert(data []byte) (*x509.Certificate, error) {
+	block, _ := pem.Decode(data)
+	if block.Type != "CERTIFICATE" {
+		return nil, fmt.Errorf("data does not contain valid certificate")
+	}
+	return x509.ParseCertificate(block.Bytes)
+}
