@@ -89,12 +89,13 @@ func (tc testClient) CreateConfigMap(name, namespace string, label *syncLabel, d
 }
 
 // CreateSecret testing helper function that creates secret object with name in supplied namespace using the label to create sync annotations
-func (tc testClient) CreateSecret(name, namespace string, label *syncLabel, data map[string][]byte) (*corev1.Secret, error) {
+func (tc testClient) CreateSecret(name, namespace string, label *syncLabel, data map[string][]byte, t corev1.SecretType) (*corev1.Secret, error) {
 	s := &corev1.Secret{
 		ObjectMeta: v1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
+		Type: t,
 	}
 	if label != nil {
 		s.Annotations = map[string]string{syncKey: fmt.Sprintf("%s=%s", label.key, label.value)}

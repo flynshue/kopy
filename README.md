@@ -111,6 +111,12 @@ $ ginkgo -v ./internal/controller/ -- --kind
 Running Suite: Controller Suite - /home/flynshue/github.com/flynshue/kopy/internal/controller
 ```
 
+Here's how to filter tests to files using regex
+```bash
+$ ginkgo -v --focus-file=secret ./internal/controller/
+```
+This will run tests in files in `./internal/controller/secret_controller_test.go`
+
 To run operator locally on cluster
 ```bash
 $ make run
