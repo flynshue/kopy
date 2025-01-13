@@ -50,7 +50,7 @@ endif
 # This is useful for CI or a project to utilize a specific version of the operator-sdk toolkit.
 OPERATOR_SDK_VERSION ?= v1.36.1
 # Image URL to use all building/pushing image targets
-IMG ?= controller:latest
+IMG ?= ghcr.io/flynshue/kopy:$(VERSION)
 # ENVTEST_K8S_VERSION refers to the version of kubebuilder assets to be downloaded by envtest binary.
 ENVTEST_K8S_VERSION = 1.29.0
 
@@ -135,18 +135,18 @@ lint-fix: golangci-lint ## Run golangci-lint linter and perform fixes
 
 .PHONY: build
 build: manifests generate fmt vet ## Build manager binary.
-	go build -o bin/manager cmd/main.go
+	go build -ldflags="-X 'main.Version=${VERSION}'" -o bin/manager cmd/main.go
 
 .PHONY: run
 run: manifests generate fmt vet ## Run a controller from your host.
-	go run ./cmd/main.go
+	go run -ldflags="-X 'main.Version=${VERSION}'" ./cmd/main.go
 
 # If you wish to build the manager image targeting other platforms you can use the --platform flag.
 # (i.e. docker build --platform linux/arm64). However, you must enable docker buildKit for it.
 # More info: https://docs.docker.com/develop/develop-images/build_enhancements/
 .PHONY: docker-build
 docker-build: ## Build docker image with the manager.
-	$(CONTAINER_TOOL) build -t ${IMG} .
+	$(CONTAINER_TOOL) build --build-arg=VERSION=${VERSION} -t ${IMG} .
 
 .PHONY: docker-push
 docker-push: ## Push docker image with the manager.
