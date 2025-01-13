@@ -43,6 +43,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var printVersion bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8082", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -55,6 +56,8 @@ func main() {
 	opts := zap.Options{
 		Development: true,
 	}
+	flag.BoolVar(&printVersion, "version", false, "Print controller version")
+
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
@@ -66,6 +69,12 @@ func main() {
 	// Rapid Reset CVEs. For more information see:
 	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
 	// - https://github.com/advisories/GHSA-4374-p667-p6c8
+
+	if printVersion {
+		fmt.Printf("version: %s\n", Version)
+		return
+	}
+
 	disableHTTP2 := func(c *tls.Config) {
 		setupLog.Info("disabling http/2")
 		c.NextProtos = []string{"http/1.1"}
