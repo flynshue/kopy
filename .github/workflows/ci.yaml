@@ -21,8 +21,20 @@ jobs:
         with:
           go-version: '1.21'
 
-      - name: Download Go deps
-        run: go mod download
-
       - name: Run tests
         run: make test
+
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: extract versions
+        id: versions
+        run: |
+          VERSION=$(<VERSION)
+
+          echo "version=${VERSION}" >> $GITHUB_OUTPUT
+          echo "dirty-version=${VERSION}-$(git log --format=%h -1)" >> $GITHUB_OUTPUT
+          echo "git-tag=v${VERSION}" >> $GITHUB_OUTPUT
+
+      - name: read version
+        run:  echo "version ${{ steps.versions.outputs.version }}"
