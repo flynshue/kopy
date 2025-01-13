@@ -71,7 +71,7 @@ func main() {
 	// - https://github.com/advisories/GHSA-4374-p667-p6c8
 
 	if printVersion {
-		fmt.Printf("version: %s\n", Version)
+		fmt.Println("Version:\t", Version)
 		return
 	}
 
