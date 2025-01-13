@@ -40,5 +40,14 @@ jobs:
           echo "dirty-version=${VERSION}-$(git log --format=%h -1)" >> $GITHUB_OUTPUT
           echo "git-tag=v${VERSION}" >> $GITHUB_OUTPUT
 
-      - name: read version
-        run:  echo "version ${{ steps.versions.outputs.version }}"
+      # - name: read version
+      #   run:  echo "version ${{ steps.versions.outputs.version }}"
+
+      - name: Check if Tag Exists
+        id: check_tag
+        run: |
+          git ls-remote --exit-code --tags origin '${{ steps.versions.outputs.version }}' && found=true
+          if [[ "${found}" == "true" ]]; then
+            echo "::error::The ${{ steps.versions.outputs.version }} tag already exists. Please update the version"
+            exit 1
+          fi
