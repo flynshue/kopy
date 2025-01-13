@@ -9,11 +9,15 @@ on:
     branches:
       - 'main'
 
+env:
+  REGISTRY: ghcr.io
+  IMAGE_NAME: ${{ github.repository }}
+
 jobs:
   test:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
       - run: git fetch --force --tags
@@ -27,7 +31,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
         with:
           fetch-depth: 0
 
@@ -40,9 +44,6 @@ jobs:
           echo "dirty-version=${VERSION}-$(git log --format=%h -1)" >> $GITHUB_OUTPUT
           echo "git-tag=v${VERSION}" >> $GITHUB_OUTPUT
 
-      # - name: read version
-      #   run:  echo "version ${{ steps.versions.outputs.version }}"
-
       - name: Check if Tag Exists
         id: check_tag
         run: |
@@ -51,3 +52,8 @@ jobs:
             echo "::error::The ${{ steps.versions.outputs.version }} tag already exists. Please update the version"
             exit 1
           fi
+
+      - name: container registry
+        run: |
+          echo "${{ env.REGISTRY }}"/${{ env.IMAGE_NAME }}
+
