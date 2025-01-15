@@ -3,6 +3,7 @@ package main
 import (
 	"crypto/tls"
 	"flag"
+	"fmt"
 	"os"
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
@@ -27,6 +28,9 @@ var (
 	setupLog = ctrl.Log.WithName("setup")
 )
 
+// Version is updated with the latest tag by the Goreleaser build
+var Version = "unreleased"
+
 func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
@@ -39,6 +43,7 @@ func main() {
 	var probeAddr string
 	var secureMetrics bool
 	var enableHTTP2 bool
+	var printVersion bool
 	flag.StringVar(&metricsAddr, "metrics-bind-address", ":8080", "The address the metric endpoint binds to.")
 	flag.StringVar(&probeAddr, "health-probe-bind-address", ":8082", "The address the probe endpoint binds to.")
 	flag.BoolVar(&enableLeaderElection, "leader-elect", false,
@@ -51,6 +56,8 @@ func main() {
 	opts := zap.Options{
 		Development: true,
 	}
+	flag.BoolVar(&printVersion, "version", false, "Print controller version")
+
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
 
@@ -62,6 +69,12 @@ func main() {
 	// Rapid Reset CVEs. For more information see:
 	// - https://github.com/advisories/GHSA-qppj-fm5r-hxr3
 	// - https://github.com/advisories/GHSA-4374-p667-p6c8
+
+	if printVersion {
+		fmt.Println("Version:\t", Version)
+		return
+	}
+
 	disableHTTP2 := func(c *tls.Config) {
 		setupLog.Info("disabling http/2")
 		c.NextProtos = []string{"http/1.1"}
@@ -129,7 +142,7 @@ func main() {
 		os.Exit(1)
 	}
 
-	setupLog.Info("starting manager")
+	setupLog.Info(fmt.Sprintf("starting manager %s", Version))
 	if err := mgr.Start(ctrl.SetupSignalHandler()); err != nil {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)

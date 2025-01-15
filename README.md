@@ -13,53 +13,37 @@
 - Access to a Kubernetes v1.11.3+ cluster.
 
 ### To Deploy on the cluster
-**Build and push your image to the location specified by `IMG`:**
 
-```sh
-make docker-build docker-push IMG=<some-registry>/kopy:tag
+Deploy controller to the K8s cluster specified in ~/.kube/config.
+
+```bash
+make deploy IMG=ghcr.io/flynshue/kopy:<IMAGE-TAG>
 ```
 
-**NOTE:** This image ought to be published in the personal registry you specified.
-And it is required to have access to pull the image from the working environment.
-Make sure you have the proper permission to the registry if the above commands don’t work.
+Example:
+```bash
+$ make deploy IMG=ghcr.io/flynshue/kopy:v0.0.1-f997fc1
 
-**Install the CRDs into the cluster:**
-
-```sh
-make install
+/home/flynshue/github.com/flynshue/kopy/bin/controller-gen-v0.14.0 rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+cd config/manager && /home/flynshue/github.com/flynshue/kopy/bin/kustomize-v5.3.0 edit set image controller=ghcr.io/flynshue/kopy:v0.0.1-f997fc1
+/home/flynshue/github.com/flynshue/kopy/bin/kustomize-v5.3.0 build config/default | kubectl apply -f -
+namespace/kopy created
+serviceaccount/kopy-controller-manager created
+role.rbac.authorization.k8s.io/kopy-leader-election-role created
+clusterrole.rbac.authorization.k8s.io/kopy-manager-role created
+clusterrole.rbac.authorization.k8s.io/kopy-metrics-reader created
+clusterrole.rbac.authorization.k8s.io/kopy-proxy-role created
+rolebinding.rbac.authorization.k8s.io/kopy-leader-election-rolebinding created
+clusterrolebinding.rbac.authorization.k8s.io/kopy-manager-rolebinding created
+clusterrolebinding.rbac.authorization.k8s.io/kopy-proxy-rolebinding created
+service/kopy-controller-manager-metrics-service created
+deployment.apps/kopy-controller-manager created
 ```
 
-**Deploy the Manager to the cluster with the image specified by `IMG`:**
-
-```sh
-make deploy IMG=<some-registry>/kopy:tag
-```
-
-> **NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
+**NOTE**: If you encounter RBAC errors, you may need to grant yourself cluster-admin
 privileges or be logged in as admin.
 
-**Create instances of your solution**
-You can apply the samples (examples) from the config/sample:
-
-```sh
-kubectl apply -k config/samples/
-```
-
->**NOTE**: Ensure that the samples has default values to test it out.
-
 ### To Uninstall
-**Delete the instances (CRs) from the cluster:**
-
-```sh
-kubectl delete -k config/samples/
-```
-
-**Delete the APIs(CRDs) from the cluster:**
-
-```sh
-make uninstall
-```
-
 **UnDeploy the controller from the cluster:**
 
 ```sh
@@ -73,7 +57,19 @@ Following are the steps to build the installer and distribute this project to us
 1. Build the installer for the image built and published in the registry:
 
 ```sh
-make build-installer IMG=<some-registry>/kopy:tag
+make build-installer IMG=ghcr.io/flynshue/kopy:<IMAGE-TAG>
+```
+
+Example:
+
+```bash
+$ make build-installer IMG=ghcr.io/flynshue/kopy:v0.0.1-f997fc1
+
+/home/flynshue/github.com/flynshue/kopy/bin/controller-gen-v0.14.0 rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+/home/flynshue/github.com/flynshue/kopy/bin/controller-gen-v0.14.0 object:headerFile="hack/boilerplate.go.txt" paths="./..."
+mkdir -p dist
+cd config/manager && /home/flynshue/github.com/flynshue/kopy/bin/kustomize-v5.3.0 edit set image controller=ghcr.io/flynshue/kopy:v0.0.1-f997fc1
+/home/flynshue/github.com/flynshue/kopy/bin/kustomize-v5.3.0 build config/default > dist/install.yaml
 ```
 
 NOTE: The makefile target mentioned above generates an 'install.yaml'
@@ -117,7 +113,7 @@ $ ginkgo -v --focus-file=secret ./internal/controller/
 ```
 This will run tests in files in `./internal/controller/secret_controller_test.go`
 
-To run operator locally on cluster
+To run operator locally on existing cluster
 ```bash
 $ make run
 /home/flynshue/github.com/flynshue/kopy/bin/controller-gen-v0.14.0 rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
