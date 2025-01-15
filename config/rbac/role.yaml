@@ -56,3 +56,11 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - namespace
+  verbs:
+  - get
+  - list
+  - watch
