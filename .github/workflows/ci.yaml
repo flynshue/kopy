@@ -83,7 +83,7 @@ jobs:
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: true
+          push: false
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           build-args: VERSION=${{ needs.test.outputs.version }}
@@ -103,15 +103,15 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: pull and retag
-        # if: github.event_name == 'push'
-        run: |
-          docker pull ${{ needs.build.outputs.image-tag }}
-          docker tag  ${{ needs.build.outputs.image-tag }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.test.outputs.version }}
-          echo "docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.test.outputs.version }}"
+      # - name: pull and retag
+      #   # if: github.event_name == 'push'
+      #   run: |
+      #     docker pull ${{ needs.build.outputs.image-tag }}
+      #     docker tag  ${{ needs.build.outputs.image-tag }} ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.test.outputs.version }}
+      #     echo "docker push ${{ env.REGISTRY }}/${{ env.IMAGE_NAME }}:${{ needs.test.outputs.version }}"
 
-      - name: GitHub Release
-        uses: ncipollo/release-action@v1.15.0
-        with:
-          tag: v${{ needs.test.outputs.version }}
-          draft: true
+      # - name: GitHub Release
+      #   uses: ncipollo/release-action@v1.15.0
+      #   with:
+      #     tag: v${{ needs.test.outputs.version }}
+      #     draft: true
