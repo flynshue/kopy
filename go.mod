@@ -2,7 +2,7 @@ module github.com/flynshue/kopy
 
 go 1.23.0
 
-godebug default=go1.23
+godebug default=go1.23.0
 
 require (
 	github.com/onsi/ginkgo/v2 v2.19.0
