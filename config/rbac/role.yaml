@@ -8,39 +8,6 @@ rules:
   - ""
   resources:
   - configmaps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - configmaps/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - configmaps/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - secrets
   verbs:
   - create
@@ -53,14 +20,24 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps/finalizers
   - secrets/finalizers
   verbs:
   - update
 - apiGroups:
   - ""
   resources:
+  - configmaps/status
   - secrets/status
   verbs:
   - get
   - patch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch

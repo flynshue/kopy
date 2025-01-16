@@ -66,39 +66,6 @@ rules:
   - ""
   resources:
   - configmaps
-  verbs:
-  - create
-  - delete
-  - get
-  - list
-  - patch
-  - update
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - configmaps/finalizers
-  verbs:
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - configmaps/status
-  verbs:
-  - get
-  - patch
-  - update
-- apiGroups:
-  - ""
-  resources:
-  - namespaces
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
   - secrets
   verbs:
   - create
@@ -111,38 +78,32 @@ rules:
 - apiGroups:
   - ""
   resources:
+  - configmaps/finalizers
   - secrets/finalizers
   verbs:
   - update
 - apiGroups:
   - ""
   resources:
+  - configmaps/status
   - secrets/status
   verbs:
   - get
   - patch
   - update
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  labels:
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: kopy
-  name: kopy-metrics-reader
-rules:
-- nonResourceURLs:
-  - /metrics
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
   verbs:
   - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  labels:
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: kopy
-  name: kopy-proxy-role
+  name: kopy-metrics-auth-role
 rules:
 - apiGroups:
   - authentication.k8s.io
@@ -156,6 +117,16 @@ rules:
   - subjectaccessreviews
   verbs:
   - create
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: kopy-metrics-reader
+rules:
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: RoleBinding
@@ -193,14 +164,11 @@ subjects:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  labels:
-    app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: kopy
-  name: kopy-proxy-rolebinding
+  name: kopy-metrics-auth-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: kopy-proxy-role
+  name: kopy-metrics-auth-role
 subjects:
 - kind: ServiceAccount
   name: kopy-controller-manager
@@ -220,8 +188,9 @@ spec:
   - name: https
     port: 8443
     protocol: TCP
-    targetPort: https
+    targetPort: 8443
   selector:
+    app.kubernetes.io/name: kopy
     control-plane: controller-manager
 ---
 apiVersion: apps/v1
@@ -237,22 +206,24 @@ spec:
   replicas: 1
   selector:
     matchLabels:
+      app.kubernetes.io/name: kopy
       control-plane: controller-manager
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
+        app.kubernetes.io/name: kopy
         control-plane: controller-manager
     spec:
       containers:
       - args:
-        - --health-probe-bind-address=:8081
-        - --metrics-bind-address=127.0.0.1:8080
         - --leader-elect
+        - --health-probe-bind-address=:8081
+        - --metrics-bind-address=:8443
         command:
         - /manager
-        image: ghcr.io/flynshue/kopy:v0.0.1-f997fc1
+        image: ghcr.io/flynshue/kopy:v0.0.1
         livenessProbe:
           httpGet:
             path: /healthz
@@ -260,6 +231,7 @@ spec:
           initialDelaySeconds: 15
           periodSeconds: 20
         name: manager
+        ports: []
         readinessProbe:
           httpGet:
             path: /readyz
@@ -278,30 +250,11 @@ spec:
           capabilities:
             drop:
             - ALL
-      - args:
-        - --secure-listen-address=0.0.0.0:8443
-        - --upstream=http://127.0.0.1:8080/
-        - --logtostderr=true
-        - --v=0
-        image: gcr.io/kubebuilder/kube-rbac-proxy:v0.16.0
-        name: kube-rbac-proxy
-        ports:
-        - containerPort: 8443
-          name: https
-          protocol: TCP
-        resources:
-          limits:
-            cpu: 500m
-            memory: 128Mi
-          requests:
-            cpu: 5m
-            memory: 64Mi
-        securityContext:
-          allowPrivilegeEscalation: false
-          capabilities:
-            drop:
-            - ALL
+        volumeMounts: []
       securityContext:
         runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
       serviceAccountName: kopy-controller-manager
       terminationGracePeriodSeconds: 10
+      volumes: []
