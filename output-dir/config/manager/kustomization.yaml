@@ -5,4 +5,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: ghcr.io/flynshue/kopy
-  newTag: v0.0.1-f997fc1
+  newTag: v0.0.1
