@@ -5,7 +5,7 @@
 domain: flynshue.io
 layout:
 - go.kubebuilder.io/v4
-projectName: output-dir
+projectName: kopy
 repo: github.com/flynshue/kopy
 resources:
 - controller: true

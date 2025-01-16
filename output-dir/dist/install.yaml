@@ -5,7 +5,7 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: output-dir
     control-plane: controller-manager
-  name: output-dir-system
+  name: kopy
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -13,8 +13,8 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: output-dir
-  name: output-dir-controller-manager
-  namespace: output-dir-system
+  name: kopy-controller-manager
+  namespace: kopy
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: Role
@@ -22,8 +22,8 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: output-dir
-  name: output-dir-leader-election-role
-  namespace: output-dir-system
+  name: kopy-leader-election-role
+  namespace: kopy
 rules:
 - apiGroups:
   - ""
@@ -60,7 +60,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: output-dir-manager-role
+  name: kopy-manager-role
 rules:
 - apiGroups:
   - ""
@@ -91,11 +91,19 @@ rules:
   - get
   - patch
   - update
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  verbs:
+  - get
+  - list
+  - watch
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: output-dir-metrics-auth-role
+  name: kopy-metrics-auth-role
 rules:
 - apiGroups:
   - authentication.k8s.io
@@ -113,7 +121,7 @@ rules:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: output-dir-metrics-reader
+  name: kopy-metrics-reader
 rules:
 - nonResourceURLs:
   - /metrics
@@ -126,16 +134,16 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: output-dir
-  name: output-dir-leader-election-rolebinding
-  namespace: output-dir-system
+  name: kopy-leader-election-rolebinding
+  namespace: kopy
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: Role
-  name: output-dir-leader-election-role
+  name: kopy-leader-election-role
 subjects:
 - kind: ServiceAccount
-  name: output-dir-controller-manager
-  namespace: output-dir-system
+  name: kopy-controller-manager
+  namespace: kopy
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -143,28 +151,28 @@ metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: output-dir
-  name: output-dir-manager-rolebinding
+  name: kopy-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: output-dir-manager-role
+  name: kopy-manager-role
 subjects:
 - kind: ServiceAccount
-  name: output-dir-controller-manager
-  namespace: output-dir-system
+  name: kopy-controller-manager
+  namespace: kopy
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: output-dir-metrics-auth-rolebinding
+  name: kopy-metrics-auth-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: output-dir-metrics-auth-role
+  name: kopy-metrics-auth-role
 subjects:
 - kind: ServiceAccount
-  name: output-dir-controller-manager
-  namespace: output-dir-system
+  name: kopy-controller-manager
+  namespace: kopy
 ---
 apiVersion: v1
 kind: Service
@@ -173,8 +181,8 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: output-dir
     control-plane: controller-manager
-  name: output-dir-controller-manager-metrics-service
-  namespace: output-dir-system
+  name: kopy-controller-manager-metrics-service
+  namespace: kopy
 spec:
   ports:
   - name: https
@@ -192,8 +200,8 @@ metadata:
     app.kubernetes.io/managed-by: kustomize
     app.kubernetes.io/name: output-dir
     control-plane: controller-manager
-  name: output-dir-controller-manager
-  namespace: output-dir-system
+  name: kopy-controller-manager
+  namespace: kopy
 spec:
   replicas: 1
   selector:
@@ -210,12 +218,12 @@ spec:
     spec:
       containers:
       - args:
-        - --metrics-bind-address=:8443
         - --leader-elect
         - --health-probe-bind-address=:8081
+        - --metrics-bind-address=:8443
         command:
         - /manager
-        image: controller:latest
+        image: ghcr.io/flynshue/kopy:v0.0.1-f997fc1
         livenessProbe:
           httpGet:
             path: /healthz
@@ -233,7 +241,7 @@ spec:
         resources:
           limits:
             cpu: 500m
-            memory: 128Mi
+            memory: 256Mi
           requests:
             cpu: 10m
             memory: 64Mi
@@ -247,6 +255,6 @@ spec:
         runAsNonRoot: true
         seccompProfile:
           type: RuntimeDefault
-      serviceAccountName: output-dir-controller-manager
+      serviceAccountName: kopy-controller-manager
       terminationGracePeriodSeconds: 10
       volumes: []
