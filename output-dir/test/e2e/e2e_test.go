@@ -15,16 +15,16 @@ import (
 )
 
 // namespace where the project is deployed in
-const namespace = "output-dir-system"
+const namespace = "kopy-system"
 
 // serviceAccountName created for the project
-const serviceAccountName = "output-dir-controller-manager"
+const serviceAccountName = "kopy-controller-manager"
 
 // metricsServiceName is the name of the metrics service of the project
-const metricsServiceName = "output-dir-controller-manager-metrics-service"
+const metricsServiceName = "kopy-controller-manager-metrics-service"
 
 // metricsRoleBindingName is the name of the RBAC that will be created to allow get the metrics data
-const metricsRoleBindingName = "output-dir-metrics-binding"
+const metricsRoleBindingName = "kopy-metrics-binding"
 
 var _ = Describe("Manager", Ordered, func() {
 	var controllerPodName string
@@ -157,7 +157,7 @@ var _ = Describe("Manager", Ordered, func() {
 		It("should ensure the metrics endpoint is serving metrics", func() {
 			By("creating a ClusterRoleBinding for the service account to allow access to metrics")
 			cmd := exec.Command("kubectl", "create", "clusterrolebinding", metricsRoleBindingName,
-				"--clusterrole=output-dir-metrics-reader",
+				"--clusterrole=kopy-metrics-reader",
 				fmt.Sprintf("--serviceaccount=%s:%s", namespace, serviceAccountName),
 			)
 			_, err := utils.Run(cmd)

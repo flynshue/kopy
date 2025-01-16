@@ -112,3 +112,33 @@ is manually re-applied afterwards.
 
 More information can be found via the [Kubebuilder Documentation](https://book.kubebuilder.io/introduction.html)
 
+## Running tests
+Here's how to run tests using the [envtest](https://book.kubebuilder.io/reference/envtest.html)
+```bash
+$ ginkgo -v ./internal/controller/
+```
+
+> [!IMPORTANT]
+> When running tests with envtest, it will skip tests that involve deleting namespaces due limitations with the envtest https://book.kubebuilder.io/reference/envtest.html#namespace-usage-limitation
+
+Here's how to run tests using kind cluster
+```bash
+$ ginkgo -v ./internal/controller/ -- --kind
+Running Suite: Controller Suite - /home/flynshue/github.com/flynshue/kopy/internal/controller
+```
+
+Here's how to filter tests to files using regex
+```bash
+$ ginkgo -v --focus-file=secret ./internal/controller/
+```
+This will run tests in files in `./internal/controller/secret_controller_test.go`
+
+To run operator locally on existing cluster
+```bash
+$ make run
+/home/flynshue/github.com/flynshue/kopy/bin/controller-gen-v0.14.0 rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
+/home/flynshue/github.com/flynshue/kopy/bin/controller-gen-v0.14.0 object:headerFile="hack/boilerplate.go.txt" paths="./..."
+go fmt ./...
+go vet ./...
+go run ./cmd/main.go
+```

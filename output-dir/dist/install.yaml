@@ -3,7 +3,7 @@ kind: Namespace
 metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: output-dir
+    app.kubernetes.io/name: kopy
     control-plane: controller-manager
   name: kopy
 ---
@@ -12,7 +12,7 @@ kind: ServiceAccount
 metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: output-dir
+    app.kubernetes.io/name: kopy
   name: kopy-controller-manager
   namespace: kopy
 ---
@@ -21,7 +21,7 @@ kind: Role
 metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: output-dir
+    app.kubernetes.io/name: kopy
   name: kopy-leader-election-role
   namespace: kopy
 rules:
@@ -133,7 +133,7 @@ kind: RoleBinding
 metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: output-dir
+    app.kubernetes.io/name: kopy
   name: kopy-leader-election-rolebinding
   namespace: kopy
 roleRef:
@@ -150,7 +150,7 @@ kind: ClusterRoleBinding
 metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: output-dir
+    app.kubernetes.io/name: kopy
   name: kopy-manager-rolebinding
 roleRef:
   apiGroup: rbac.authorization.k8s.io
@@ -179,7 +179,7 @@ kind: Service
 metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: output-dir
+    app.kubernetes.io/name: kopy
     control-plane: controller-manager
   name: kopy-controller-manager-metrics-service
   namespace: kopy
@@ -190,7 +190,7 @@ spec:
     protocol: TCP
     targetPort: 8443
   selector:
-    app.kubernetes.io/name: output-dir
+    app.kubernetes.io/name: kopy
     control-plane: controller-manager
 ---
 apiVersion: apps/v1
@@ -198,7 +198,7 @@ kind: Deployment
 metadata:
   labels:
     app.kubernetes.io/managed-by: kustomize
-    app.kubernetes.io/name: output-dir
+    app.kubernetes.io/name: kopy
     control-plane: controller-manager
   name: kopy-controller-manager
   namespace: kopy
@@ -206,14 +206,14 @@ spec:
   replicas: 1
   selector:
     matchLabels:
-      app.kubernetes.io/name: output-dir
+      app.kubernetes.io/name: kopy
       control-plane: controller-manager
   template:
     metadata:
       annotations:
         kubectl.kubernetes.io/default-container: manager
       labels:
-        app.kubernetes.io/name: output-dir
+        app.kubernetes.io/name: kopy
         control-plane: controller-manager
     spec:
       containers:

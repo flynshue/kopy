@@ -27,7 +27,7 @@ var (
 
 	// projectImage is the name of the image which will be build and loaded
 	// with the code source changes to be tested.
-	projectImage = "example.com/output-dir:v0.0.1"
+	projectImage = "example.com/kopy:v0.0.1"
 )
 
 // TestE2E runs the end-to-end (e2e) test suite for the project. These tests execute in an isolated,
@@ -36,7 +36,7 @@ var (
 // CertManager and Prometheus.
 func TestE2E(t *testing.T) {
 	RegisterFailHandler(Fail)
-	_, _ = fmt.Fprintf(GinkgoWriter, "Starting output-dir integration test suite\n")
+	_, _ = fmt.Fprintf(GinkgoWriter, "Starting kopy integration test suite\n")
 	RunSpecs(t, "e2e suite")
 }
 
