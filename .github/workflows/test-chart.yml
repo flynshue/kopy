@@ -1,8 +1,13 @@
 name: Test Chart
 
 on:
-  push:
   pull_request:
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+  push:
+    branches:
+      - 'main'
 
 jobs:
   test-e2e:
