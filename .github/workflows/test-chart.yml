@@ -83,7 +83,7 @@ jobs:
 
       - name: Install Helm chart for project
         run: |
-          helm install my-release ./dist/chart/ --create-namespace \
+          helm install --atomic my-release ./dist/chart/ --create-namespace \
           --namespace kopy \
           --set controllerManager.container.image.repository=kopy \
           --set controllerManager.container.image.tag=v0.0.1
