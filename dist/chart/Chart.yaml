@@ -2,6 +2,8 @@ apiVersion: v2
 name: kopy
 description: A Helm chart to distribute the project kopy
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
-icon: "https://example.com/icon.png"
+version: v0.0.1
+appVersion: "v0.0.1"
+home: https://github.com/flynshue/kopy
+sources:
+  - https://github.com/flynshue/kopy
