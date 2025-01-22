@@ -5,6 +5,8 @@
 domain: flynshue.io
 layout:
 - go.kubebuilder.io/v4
+plugins:
+  helm.kubebuilder.io/v1-alpha: {}
 projectName: kopy
 repo: github.com/flynshue/kopy
 resources:
