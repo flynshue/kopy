@@ -5,9 +5,14 @@ on:
     paths-ignore:
       - 'docs/**'
       - '**.md'
+      - '**mkdocs.yml'
+      - 'requirements.txt'
   push:
-    branches:
-      - 'main'
+    paths-ignore:
+      - 'docs/**'
+      - '**.md'
+      - '**mkdocs.yml'
+      - 'requirements.txt'
 
 jobs:
   test-e2e:
