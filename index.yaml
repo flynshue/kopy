@@ -1,0 +1,17 @@
+apiVersion: v1
+entries:
+  kopy:
+  - apiVersion: v2
+    appVersion: v0.0.1
+    created: "2025-01-26T17:26:32.821746896Z"
+    description: A Helm chart to distribute the kopy operator
+    digest: 77181567d1d0097443011a4f1050b08946cccafc1c702340a7cf31bf729c06e3
+    home: https://github.com/flynshue/kopy
+    name: kopy
+    sources:
+    - https://github.com/flynshue/kopy
+    type: application
+    urls:
+    - https://github.com/flynshue/kopy/releases/download/v0.0.1/kopy-v0.0.1.tgz
+    version: v0.0.1
+generated: "2025-01-26T17:26:32.821756003Z"
