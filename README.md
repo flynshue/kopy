@@ -1,8 +1,7 @@
 # kopy
-kopy is a kubernetes operator that can synchronize configmaps and secrets across namespaces
+kopy is a kubernetes operator that can sync configMap or secret objects to other namespaces within the cluster.
 
-## Description
-// TODO(user): An in-depth paragraph about your project and overview of use
+Please refer to the [Kopy User Guide](https://flynshue.github.io/kopy-docs/) for more details on how install the operator within your cluster and how to use the operator.
 
 ## Getting Started
 
