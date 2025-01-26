@@ -3,16 +3,11 @@ name: ci
 on:
   pull_request:
     paths-ignore:
-      - 'docs/**'
       - '**.md'
-      - '**mkdocs.yml'
-      - 'requirements.txt'
+
   push:
     paths-ignore:
-      - 'docs/**'
       - '**.md'
-      - '**mkdocs.yml'
-      - 'requirements.txt'
 
 env:
   REGISTRY: ghcr.io
