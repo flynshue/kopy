@@ -6,6 +6,8 @@ on:
       - '**.md'
 
   push:
+    branches:
+      - main
     paths-ignore:
       - '**.md'
 
