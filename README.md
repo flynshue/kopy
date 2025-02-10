@@ -20,10 +20,10 @@ make deploy IMG=ghcr.io/flynshue/kopy:<IMAGE-TAG>
 
 Example:
 ```bash
-$ make deploy IMG=ghcr.io/flynshue/kopy:v0.0.1-f997fc1
+$ make deploy IMG=ghcr.io/flynshue/kopy:v0.0.2-f997fc1
 
 /home/flynshue/github.com/flynshue/kopy/bin/controller-gen-v0.14.0 rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
-cd config/manager && /home/flynshue/github.com/flynshue/kopy/bin/kustomize-v5.3.0 edit set image controller=ghcr.io/flynshue/kopy:v0.0.1-f997fc1
+cd config/manager && /home/flynshue/github.com/flynshue/kopy/bin/kustomize-v5.3.0 edit set image controller=ghcr.io/flynshue/kopy:v0.0.2-f997fc1
 /home/flynshue/github.com/flynshue/kopy/bin/kustomize-v5.3.0 build config/default | kubectl apply -f -
 namespace/kopy created
 serviceaccount/kopy-controller-manager created
@@ -63,12 +63,12 @@ make build-installer IMG=ghcr.io/flynshue/kopy:<IMAGE-TAG>
 Example:
 
 ```bash
-$ make build-installer IMG=ghcr.io/flynshue/kopy:v0.0.1-f997fc1
+$ make build-installer IMG=ghcr.io/flynshue/kopy:v0.0.2-f997fc1
 
 /home/flynshue/github.com/flynshue/kopy/bin/controller-gen-v0.14.0 rbac:roleName=manager-role crd webhook paths="./..." output:crd:artifacts:config=config/crd/bases
 /home/flynshue/github.com/flynshue/kopy/bin/controller-gen-v0.14.0 object:headerFile="hack/boilerplate.go.txt" paths="./..."
 mkdir -p dist
-cd config/manager && /home/flynshue/github.com/flynshue/kopy/bin/kustomize-v5.3.0 edit set image controller=ghcr.io/flynshue/kopy:v0.0.1-f997fc1
+cd config/manager && /home/flynshue/github.com/flynshue/kopy/bin/kustomize-v5.3.0 edit set image controller=ghcr.io/flynshue/kopy:v0.0.2-f997fc1
 /home/flynshue/github.com/flynshue/kopy/bin/kustomize-v5.3.0 build config/default > dist/install.yaml
 ```
 

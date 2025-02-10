@@ -50,6 +50,7 @@ func (ks *KopySecret) Copy(s *corev1.Secret, namespace string) error {
 				sourceLabelNamespace: s.Namespace,
 			},
 		},
+		Type: s.Type,
 	}
 	ctrlutil.AddFinalizer(copy, syncFinalizer)
 	if err := ks.Create(ks.Context, copy); err != nil {
