@@ -1,6 +1,6 @@
 # kopy
 
-![Version: v0.0.1](https://img.shields.io/badge/Version-v0.0.1-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.0.1](https://img.shields.io/badge/AppVersion-v0.0.1-informational?style=flat-square)
+![Version: v0.0.2](https://img.shields.io/badge/Version-v0.0.2-informational?style=flat-square) ![Type: application](https://img.shields.io/badge/Type-application-informational?style=flat-square) ![AppVersion: v0.0.2](https://img.shields.io/badge/AppVersion-v0.0.2-informational?style=flat-square)
 
 A Helm chart to distribute the project kopy
 
@@ -19,7 +19,7 @@ A Helm chart to distribute the project kopy
 | controllerManager.container.args[1] | string | `"--metrics-bind-address=:8443"` |  |
 | controllerManager.container.args[2] | string | `"--health-probe-bind-address=:8081"` |  |
 | controllerManager.container.image.repository | string | `"ghcr.io/flynshue/kopy"` |  |
-| controllerManager.container.image.tag | string | `"v0.0.1"` |  |
+| controllerManager.container.image.tag | string | `"v0.0.2"` |  |
 | controllerManager.container.livenessProbe.httpGet.path | string | `"/healthz"` |  |
 | controllerManager.container.livenessProbe.httpGet.port | int | `8081` |  |
 | controllerManager.container.livenessProbe.initialDelaySeconds | int | `15` |  |

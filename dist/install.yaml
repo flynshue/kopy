@@ -223,7 +223,7 @@ spec:
         - --metrics-bind-address=:8443
         command:
         - /manager
-        image: ghcr.io/flynshue/kopy:v0.0.1
+        image: ghcr.io/flynshue/kopy:v0.0.2
         livenessProbe:
           httpGet:
             path: /healthz
