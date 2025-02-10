@@ -326,6 +326,12 @@ var _ = Describe("Secret Controller\n", func() {
 			}, timeout, interval).Should(BeTrue())
 			b, _ = yaml.Marshal(targetSecret)
 			GinkgoWriter.Println(string(b))
+
+			By("Verifying secret type is the same")
+			Expect(targetSecret.Type).To(Equal(src.secret.Type))
+
+			By("Verifying secret data is the same")
+			Expect(targetSecret.Data).To(Equal(src.secret.Data))
 		})
 	})
 	Context("When secret is type tls", func() {
