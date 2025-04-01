@@ -24,6 +24,13 @@ type Kopier interface {
 	SourceDeletion() error
 }
 
+const (
+	syncKey              = "kopy.kot-labs.com/sync"
+	sourceLabelName      = "kopy.kot-labs.com/origin.name"
+	sourceLabelNamespace = "kopy.kot-labs.com/origin.namespace"
+	syncFinalizer        = "kopy.kot-labs.com/finalizer"
+)
+
 // KopyReconcile runs the reconcile loop logic for Kopier interface
 func KopyReconcile(k Kopier, req ctrl.Request) (ctrl.Result, error) {
 	log := ctrllog.FromContext(k.GetContext())

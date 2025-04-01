@@ -22,13 +22,6 @@ type ConfigMapReconciler struct {
 	Scheme *runtime.Scheme
 }
 
-const (
-	syncKey              = "flynshue.io/sync"
-	sourceLabelName      = "flynshue.io/origin.name"
-	sourceLabelNamespace = "flynshue.io/origin.namespace"
-	syncFinalizer        = "flynshue.io/finalizer"
-)
-
 // +kubebuilder:rbac:groups=core,resources=configmaps,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=core,resources=configmaps/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=core,resources=configmaps/finalizers,verbs=update
