@@ -63,7 +63,7 @@ func (r *SecretReconciler) watchNamespaces(ctx context.Context, namespace client
 				Namespace: s.GetNamespace(),
 				Name:      s.GetName(),
 			}}
-			log.Info("need to add reconile", "source.configMap", s.GetName(), "source.Namespace", s.GetNamespace(), "target.Namespace", namespace.GetName())
+			log.Info("need to add reconcile", "source.secret", s.GetName(), "source.Namespace", s.GetNamespace(), "target.Namespace", namespace.GetName())
 		}
 
 	}
