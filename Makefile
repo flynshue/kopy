@@ -1,5 +1,5 @@
 # Image URL to use all building/pushing image targets
-VERSION ?= v0.0.3
+VERSION ?= v0.0.4
 IMG ?= ghcr.io/flynshue/kopy:$(VERSION)
 
 # Get the currently used golang install path (in GOPATH/bin, unless GOBIN is set)

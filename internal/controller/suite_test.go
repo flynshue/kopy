@@ -11,6 +11,7 @@ import (
 
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
+	"go.uber.org/zap/zapcore"
 
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/client-go/kubernetes/scheme"
@@ -51,7 +52,11 @@ func TestControllers(t *testing.T) {
 }
 
 var _ = BeforeSuite(func() {
-	logf.SetLogger(zap.New(zap.WriteTo(GinkgoWriter), zap.UseDevMode(true)))
+	logf.SetLogger(zap.New(
+		zap.WriteTo(GinkgoWriter),
+		zap.UseDevMode(false),
+		zap.JSONEncoder(jsonEncodeConfig),
+	))
 
 	ctx, cancel = context.WithCancel(context.TODO())
 
@@ -151,4 +156,9 @@ func getFirstFoundEnvTestBinaryDir() string {
 
 func init() {
 	flag.BoolVar(&useKind, "kind", false, "use kind cluster instead of the envtest k8s cluster")
+}
+
+func jsonEncodeConfig(config *zapcore.EncoderConfig) {
+	config.TimeKey = "time"
+	config.EncodeTime = zapcore.ISO8601TimeEncoder
 }

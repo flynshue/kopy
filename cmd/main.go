@@ -9,6 +9,7 @@ import (
 
 	// Import all Kubernetes client auth plugins (e.g. Azure, GCP, OIDC, etc.)
 	// to ensure that exec-entrypoint and run can make use of them.
+	"go.uber.org/zap/zapcore"
 	_ "k8s.io/client-go/plugin/pkg/client/auth"
 
 	"k8s.io/apimachinery/pkg/runtime"
@@ -73,8 +74,14 @@ func main() {
 	flag.BoolVar(&printVersion, "version", false, "Print controller version")
 	opts.BindFlags(flag.CommandLine)
 	flag.Parse()
+	encoderFlag := flag.Lookup("zap-encoder")
+	if encoderFlag.Value.String() == "json" || !opts.Development {
+		opts.EncoderConfigOptions = append(opts.EncoderConfigOptions, jsonEncodeConfig)
+	}
 
-	ctrl.SetLogger(zap.New(zap.UseFlagOptions(&opts)))
+	ctrl.SetLogger(zap.New(
+		zap.UseFlagOptions(&opts),
+	))
 
 	if printVersion {
 		fmt.Println("Version:\t", Version)
@@ -240,4 +247,8 @@ func main() {
 		setupLog.Error(err, "problem running manager")
 		os.Exit(1)
 	}
+}
+
+func jsonEncodeConfig(config *zapcore.EncoderConfig) {
+	config.TimeKey = "time"
 }

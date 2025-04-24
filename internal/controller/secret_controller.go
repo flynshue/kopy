@@ -45,7 +45,7 @@ func (r *SecretReconciler) watchNamespaces(ctx context.Context, namespace client
 	}
 	secrets := &corev1.SecretList{}
 	if err := r.List(ctx, secrets); err != nil {
-		log.Info("unable to grab a list of configmaps")
+		log.Info("unable to grab a list of secrets")
 		return nil
 	}
 	req := make([]reconcile.Request, len(secrets.Items))
@@ -63,7 +63,7 @@ func (r *SecretReconciler) watchNamespaces(ctx context.Context, namespace client
 				Namespace: s.GetNamespace(),
 				Name:      s.GetName(),
 			}}
-			log.Info("need to add reconile", "source.configMap", s.GetName(), "source.Namespace", s.GetNamespace(), "target.Namespace", namespace.GetName())
+			log.Info("need to add reconcile queue", "secret", s.GetName(), "sourceNamespace", s.GetNamespace(), "targetNamespace", namespace.GetName())
 		}
 
 	}
