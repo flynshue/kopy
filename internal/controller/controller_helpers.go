@@ -9,6 +9,7 @@ import (
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	"k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/types"
+	ctrl "sigs.k8s.io/controller-runtime"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 )
 
@@ -37,16 +38,19 @@ func namespaceContainsSyncLabel(o client.Object, namespace client.Object) bool {
 	return namespace.GetLabels()[key] == value
 }
 
-func getSyncNamespaces(ctx context.Context, c client.Client, selector labels.Selector) ([]corev1.Namespace, error) {
+func getSyncNamespaces(ctx context.Context, c client.Client, req ctrl.Request, selector labels.Selector) ([]corev1.Namespace, error) {
 	namespaceList := &corev1.NamespaceList{}
 	opts := &client.ListOptions{LabelSelector: selector}
 	if err := c.List(ctx, namespaceList, opts); err != nil {
 		return nil, fmt.Errorf("unable to list namespaces")
 	}
-	namespaces := make([]corev1.Namespace, len(namespaceList.Items))
-	for i, ns := range namespaceList.Items {
+	namespaces := make([]corev1.Namespace, 0, len(namespaceList.Items))
+	for _, ns := range namespaceList.Items {
+		if ns.Name == req.Namespace {
+			continue
+		}
 		if ns.DeletionTimestamp == nil {
-			namespaces[i] = ns
+			namespaces = append(namespaces, ns)
 		}
 	}
 	return namespaces, nil

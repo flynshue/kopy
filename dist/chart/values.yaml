@@ -1,14 +1,16 @@
 # [MANAGER]: Manager Deployment Configurations
 controllerManager:
+  podAnnotations: {}
   replicas: 1
   container:
     image:
       repository: ghcr.io/flynshue/kopy
-      tag: v0.0.3
+      tag: v0.0.4
     args:
       - "--leader-elect"
       - "--metrics-bind-address=:8443"
       - "--health-probe-bind-address=:8081"
+      - "--zap-encoder=json"
     resources:
       limits:
         cpu: 500m

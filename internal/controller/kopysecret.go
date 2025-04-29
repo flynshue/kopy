@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -107,7 +108,7 @@ func (ks *KopySecret) MarkedForDeletion() bool {
 // It will Remove the finalizer from the receiver Secret object to allow kubernetes to delete object
 // It will verify the receiver Secret Object namespace still contains the sync labels first before syncing the Secret back into namespace
 func (ks *KopySecret) SyncDeletedCopy() error {
-	log := ctrllog.FromContext(ks.Context)
+	log := ks.Logger()
 	originNamespace := ks.Labels[sourceLabelNamespace]
 	originSecret := &corev1.Secret{}
 	if err := ks.Get(ks.Context, types.NamespacedName{Namespace: originNamespace, Name: ks.Name}, originSecret); err != nil {
@@ -135,9 +136,30 @@ func (ks *KopySecret) SyncOptions() bool {
 	return ok
 }
 
-func (ks *KopySecret) SyncSource(namespace string) error {
-	return ks.Copy(ks.Secret, namespace)
-
+func (ks *KopySecret) SyncSource(name, sourceNamespace, targetNamespace string) error {
+	sourceSecret := &corev1.Secret{}
+	req := types.NamespacedName{Namespace: sourceNamespace, Name: name}
+	if err := ks.Client.Get(ks.Context, req, sourceSecret); err != nil {
+		return err
+	}
+	// Verify that there are no other sources
+	req.Namespace = targetNamespace
+	targetSecret := &corev1.Secret{}
+	err := ks.Client.Get(ks.Context, req, targetSecret)
+	// if secret doesn't exist in targetNamespace yet, copy
+	if apierrors.IsNotFound(err) {
+		return ks.Copy(sourceSecret, targetNamespace)
+	}
+	// secret exists in the targetNamespace, need to verify if it contains labels "kopy.kot-labs.com/origin.namespace"
+	origin, ok := targetSecret.Labels[sourceLabelNamespace]
+	// if "kopy.kot-labs.com/origin.namespace" doesn't exist on the target secret, overwrite it
+	if !ok {
+		return ks.Copy(sourceSecret, targetNamespace)
+	}
+	if origin != sourceNamespace {
+		return fmt.Errorf("%s has a different source in namespace %s", name, origin)
+	}
+	return ks.Copy(sourceSecret, targetNamespace)
 }
 
 // SourceDeletion will grab a list objects that are copies of the receiver Secret object and remove the
@@ -147,14 +169,14 @@ func (ks *KopySecret) SourceDeletion() error {
 	if err := ks.List(ks.Context, copies, listOptions(ks.Secret)); err != nil {
 		return err
 	}
-	log := ctrllog.FromContext(ks.Context)
+	log := ks.Logger()
 	errs := make([]error, 0, len(copies.Items))
 	for _, cp := range copies.Items {
 		if cp.Name != ks.Secret.Name {
 			continue
 		}
 		if ctrlutil.ContainsFinalizer(&cp, syncFinalizer) {
-			log.Info("need to remove finalizer from copy", "copy.Secret", cp.Name, "copy.Namespace", cp.Namespace)
+			log.Info("need to remove finalizer from copy", "name", cp.Name, "namespace", cp.Namespace)
 			ctrlutil.RemoveFinalizer(&cp, syncFinalizer)
 			if err := ks.Update(ks.Context, &cp); err != nil {
 				log.Info("unable to remove finalizer from copy in namespace " + cp.Namespace)
@@ -165,7 +187,17 @@ func (ks *KopySecret) SourceDeletion() error {
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
-	log.Info("removed finalizer from source")
+	log.Info("removing finalizer from source", "name", ks.Secret.Name)
 	ctrlutil.RemoveFinalizer(ks.Secret, syncFinalizer)
 	return ks.Update(ks.Context, ks.Secret)
+}
+
+func (ks *KopySecret) IsCopy() bool {
+	_, ok := ks.Secret.Labels[sourceLabelNamespace]
+	ctrlutil.ContainsFinalizer(ks.Secret, syncFinalizer)
+	return ok && ctrlutil.ContainsFinalizer(ks.Secret, syncFinalizer)
+}
+
+func (ks *KopySecret) Logger() logr.Logger {
+	return ctrllog.Log.WithValues("controller", "secret")
 }

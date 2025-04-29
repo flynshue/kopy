@@ -89,6 +89,24 @@ var _ = Describe("Secret Controller\n", func() {
 			b, _ = yaml.Marshal(copy)
 			GinkgoWriter.Println(string(b))
 
+			By("Updating copy secret")
+			Expect(tc.GetSecret(src.name, targetNamespace.Name, copy)).ShouldNot(HaveOccurred())
+			copy.Labels["foo"] = "bar"
+			Expect(tc.UpdateSecret(copy)).ShouldNot(HaveOccurred())
+			b, _ = yaml.Marshal(copy)
+			GinkgoWriter.Print(string(b))
+
+			By("Verify copy get updated")
+			Eventually(func() bool {
+				copy := &corev1.Secret{}
+				err := tc.GetSecret(src.name, targetNamespace.Name, copy)
+				if err != nil {
+					return false
+				}
+				_, ok := copy.Labels["foo"]
+				return !ok
+			}, timeout, interval).Should(BeTrue())
+
 		})
 	})
 	Context("Namespace doesn't doesn't contain sync label", func() {
@@ -404,6 +422,132 @@ var _ = Describe("Secret Controller\n", func() {
 				copyCert, _ := decodePemCert(copy.Data[corev1.TLSCertKey])
 				return copyCert.Equal(newCert)
 			}, timeout, interval).Should(BeTrue())
+
+		})
+	})
+	Context("When there's a duplicate source secret", func() {
+		It("Should fail", func() {
+			By("Creating new source namespace and secret")
+			tc = NewTestClient(context.Background())
+			src := struct {
+				name      string
+				namespace string
+				secret    *corev1.Secret
+			}{
+				name: "test-src-secret-09", namespace: "test-src-secret-ns-09", secret: &corev1.Secret{},
+			}
+			_, err := tc.CreateNamespace(src.namespace, nil)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(tc.GetNamespace(src.namespace, &corev1.Namespace{}), timeout, interval).Should(Succeed())
+			label := &syncLabel{key: testLabelKey, value: src.name}
+			data := map[string][]byte{"password": []byte(src.name)}
+
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data, corev1.SecretTypeOpaque)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(func() bool {
+				err := tc.GetSecret(src.name, src.namespace, src.secret)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			By("Creating new target namespace")
+			targetNamespace, err := tc.CreateNamespace("test-target-secret-ns-09", label)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(func() bool {
+				err := tc.GetNamespace(targetNamespace.Name, &corev1.Namespace{})
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+
+			By("Checking target namespace for copy")
+			copy := &corev1.Secret{}
+			Eventually(func() bool {
+				err := tc.GetSecret(src.name, targetNamespace.Name, copy)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+			b, _ := yaml.Marshal(copy)
+			GinkgoWriter.Println(string(b))
+
+			By("Creating duplicate source secret")
+			duplicate := struct {
+				name      string
+				namespace string
+				secret    *corev1.Secret
+			}{
+				name: "test-src-secret-09", namespace: "test-src-secret-dup-ns-09", secret: &corev1.Secret{},
+			}
+			_, err = tc.CreateNamespace(duplicate.namespace, nil)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(tc.GetNamespace(duplicate.namespace, &corev1.Namespace{}), timeout, interval).Should(Succeed())
+
+			duplicate.secret, err = tc.CreateSecret(duplicate.name, duplicate.namespace, label, data, corev1.SecretTypeOpaque)
+			Expect(err).ShouldNot(HaveOccurred())
+			b, _ = yaml.Marshal(duplicate.secret)
+			GinkgoWriter.Println(string(b))
+
+			Eventually(func() bool {
+				err := tc.GetSecret(duplicate.name, duplicate.namespace, duplicate.secret)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+			b, _ = yaml.Marshal(duplicate.secret)
+			GinkgoWriter.Print(string(b))
+
+			By("Checking target namespace to verify that origin namespace hasn't changed")
+			copy = &corev1.Secret{}
+			Eventually(func() bool {
+				err := tc.GetSecret(src.name, targetNamespace.Name, copy)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+			b, _ = yaml.Marshal(copy)
+			GinkgoWriter.Println(string(b))
+			Expect(copy.Labels[sourceLabelNamespace]).To(Equal(src.namespace))
+		})
+	})
+	Context("When source secret's namespace contains the sync label", func() {
+		It("Should leave the annotations on the source", func() {
+			By("Create source namespace")
+			tc = NewTestClient(context.Background())
+			src := struct {
+				name      string
+				namespace string
+				secret    *corev1.Secret
+			}{
+				name: "test-src-secret-10", namespace: "test-src-secret-ns-10", secret: &corev1.Secret{},
+			}
+			label := &syncLabel{key: testLabelKey, value: src.name}
+			_, err := tc.CreateNamespace(src.namespace, label)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(tc.GetNamespace(src.namespace, &corev1.Namespace{}), timeout, interval).Should(Succeed())
+
+			By("Creating new source secret")
+			data := map[string][]byte{"password": []byte("anothersupersecret")}
+			src.secret, err = tc.CreateSecret(src.name, src.namespace, label, data, corev1.SecretTypeOpaque)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(tc.GetSecret(src.name, src.namespace, src.secret), timeout, interval).Should(Succeed())
+			srcAnnotations := src.secret.GetAnnotations()
+			b, _ := yaml.Marshal(src.secret)
+			GinkgoWriter.Println(string(b))
+
+			By("Creating new target namespace")
+			targetNamespace, err := tc.CreateNamespace("test-target-secret-ns-10", label)
+			Expect(err).ShouldNot(HaveOccurred())
+			Eventually(tc.GetNamespace(targetNamespace.Name, targetNamespace), timeout, interval).Should(Succeed())
+
+			By("Checking source secret annotations")
+			src.secret = &corev1.Secret{}
+			Consistently(func() bool {
+				tc.GetSecret(src.name, src.namespace, src.secret)
+				return reflect.DeepEqual(src.secret.GetAnnotations(), srcAnnotations)
+			}, time.Second*1, interval).Should(BeTrue())
+			b, _ = yaml.Marshal(src.secret)
+			GinkgoWriter.Println(string(b))
+
+			By("Checking for target namespace for copy of secret")
+			targetSecret := &corev1.Secret{}
+			Eventually(func() bool {
+				err := tc.GetSecret(src.name, targetNamespace.Name, targetSecret)
+				return err == nil
+			}, timeout, interval).Should(BeTrue())
+			b, _ = yaml.Marshal(targetSecret)
+			GinkgoWriter.Println(string(b))
 
 		})
 	})

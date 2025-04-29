@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 
+	"github.com/go-logr/logr"
 	corev1 "k8s.io/api/core/v1"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -105,7 +106,7 @@ func (ks *KopyConfigMap) MarkedForDeletion() bool {
 // It will Remove the finalizer from the receiver ConfigMap object to allow kubernetes to delete object
 // It will verify the receiver ConfigMap Object namespace still contains the sync labels first before syncing the ConfigMap back into namespace
 func (ks *KopyConfigMap) SyncDeletedCopy() error {
-	log := ctrllog.FromContext(ks.Context)
+	log := ks.Logger()
 	originNamespace := ks.Labels[sourceLabelNamespace]
 	originConfigMap := &corev1.ConfigMap{}
 	if err := ks.Get(ks.Context, types.NamespacedName{Namespace: originNamespace, Name: ks.Name}, originConfigMap); err != nil {
@@ -133,8 +134,30 @@ func (ks *KopyConfigMap) SyncOptions() bool {
 	return ok
 }
 
-func (ks *KopyConfigMap) SyncSource(namespace string) error {
-	return ks.Copy(ks.ConfigMap, namespace)
+func (ks *KopyConfigMap) SyncSource(name, sourceNamespace, targetNamespace string) error {
+	sourceConfigMap := &corev1.ConfigMap{}
+	req := types.NamespacedName{Namespace: sourceNamespace, Name: name}
+	if err := ks.Client.Get(ks.Context, req, sourceConfigMap); err != nil {
+		return err
+	}
+	// Verify that there are no other sources
+	req.Namespace = targetNamespace
+	targetConfigMap := &corev1.ConfigMap{}
+	err := ks.Client.Get(ks.Context, req, targetConfigMap)
+	// if configmap doesn't exist in targetNamespace yet, copy
+	if apierrors.IsNotFound(err) {
+		return ks.Copy(sourceConfigMap, targetNamespace)
+	}
+	// configmap exists in the targetNamespace, need to verify if it contains labels "kopy.kot-labs.com/origin.namespace"
+	origin, ok := targetConfigMap.Labels[sourceLabelNamespace]
+	// if "kopy.kot-labs.com/origin.namespace" doesn't exist on the target configmap, overwrite it
+	if !ok {
+		return ks.Copy(sourceConfigMap, targetNamespace)
+	}
+	if origin != sourceNamespace {
+		return fmt.Errorf("%s has a different source in namespace %s", name, origin)
+	}
+	return ks.Copy(sourceConfigMap, targetNamespace)
 
 }
 
@@ -145,14 +168,14 @@ func (ks *KopyConfigMap) SourceDeletion() error {
 	if err := ks.List(ks.Context, copies, listOptions(ks.ConfigMap)); err != nil {
 		return err
 	}
-	log := ctrllog.FromContext(ks.Context)
+	log := ks.Logger()
 	errs := make([]error, 0, len(copies.Items))
 	for _, cp := range copies.Items {
 		if cp.Name != ks.ConfigMap.Name {
 			continue
 		}
 		if ctrlutil.ContainsFinalizer(&cp, syncFinalizer) {
-			log.Info("need to remove finalizer from copy", "copy.ConfigMap", cp.Name, "copy.Namespace", cp.Namespace)
+			log.Info("need to remove finalizer from copy", "name", cp.Name, "namespace", cp.Namespace)
 			ctrlutil.RemoveFinalizer(&cp, syncFinalizer)
 			if err := ks.Update(ks.Context, &cp); err != nil {
 				log.Info("unable to remove finalizer from copy in namespace " + cp.Namespace)
@@ -163,7 +186,17 @@ func (ks *KopyConfigMap) SourceDeletion() error {
 	if len(errs) > 0 {
 		return errors.Join(errs...)
 	}
-	log.Info("removed finalizer from source")
+	log.Info("removing finalizer from source", "name", ks.ConfigMap.Name)
 	ctrlutil.RemoveFinalizer(ks.ConfigMap, syncFinalizer)
 	return ks.Update(ks.Context, ks.ConfigMap)
+}
+
+func (ks *KopyConfigMap) IsCopy() bool {
+	_, ok := ks.ConfigMap.Labels[sourceLabelNamespace]
+	ctrlutil.ContainsFinalizer(ks.ConfigMap, syncFinalizer)
+	return ok && ctrlutil.ContainsFinalizer(ks.ConfigMap, syncFinalizer)
+}
+
+func (ks *KopyConfigMap) Logger() logr.Logger {
+	return ctrllog.Log.WithValues("controller", "configMap")
 }

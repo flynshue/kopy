@@ -65,7 +65,7 @@ func (r *ConfigMapReconciler) watchNamespaces(ctx context.Context, namespace cli
 				Namespace: cm.GetNamespace(),
 				Name:      cm.GetName(),
 			}}
-			log.Info("need to add reconile", "source.configMap", cm.GetName(), "source.Namespace", cm.GetNamespace(), "target.Namespace", namespace.GetName())
+			log.Info("need to add reconcile queue", "source.configMap", cm.GetName(), "source.Namespace", cm.GetNamespace(), "target.Namespace", namespace.GetName())
 		}
 
 	}
