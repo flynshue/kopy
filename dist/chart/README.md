@@ -19,7 +19,7 @@ A Helm chart to distribute the project kopy
 | controllerManager.container.args[1] | string | `"--metrics-bind-address=:8443"` |  |
 | controllerManager.container.args[2] | string | `"--health-probe-bind-address=:8081"` |  |
 | controllerManager.container.image.repository | string | `"ghcr.io/flynshue/kopy"` |  |
-| controllerManager.container.image.tag | string | `"v0.0.4"` |  |
+| controllerManager.container.image.tag | string | `"v0.0.5"` |  |
 | controllerManager.container.livenessProbe.httpGet.path | string | `"/healthz"` |  |
 | controllerManager.container.livenessProbe.httpGet.port | int | `8081` |  |
 | controllerManager.container.livenessProbe.initialDelaySeconds | int | `15` |  |

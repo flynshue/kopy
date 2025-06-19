@@ -5,7 +5,7 @@ controllerManager:
   container:
     image:
       repository: ghcr.io/flynshue/kopy
-      tag: v0.0.4
+      tag: v0.0.5
     args:
       - "--leader-elect"
       - "--metrics-bind-address=:8443"
