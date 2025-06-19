@@ -252,6 +252,14 @@ var _ = Describe("Secret Controller\n", func() {
 				}, timeout, interval).Should(BeTrue())
 			}
 
+			By("Verifying label has been removed from copies")
+			for _, t := range testCases {
+				Eventually(func() bool {
+					tc.GetSecret(src.name, t.name, t.secret)
+					_, ok := t.secret.Labels[testLabelKey]
+					return !ok
+				}, timeout, interval).Should(BeTrue())
+			}
 		})
 	})
 	Context("When copy secret is deleted", func() {
