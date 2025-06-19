@@ -256,7 +256,7 @@ var _ = Describe("Secret Controller\n", func() {
 			for _, t := range testCases {
 				Eventually(func() bool {
 					tc.GetSecret(src.name, t.name, t.secret)
-					_, ok := t.secret.Labels[testLabelKey]
+					_, ok := t.secret.Labels[sourceLabelNamespace]
 					return !ok
 				}, timeout, interval).Should(BeTrue())
 			}
