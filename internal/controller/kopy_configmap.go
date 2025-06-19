@@ -177,6 +177,8 @@ func (ks *KopyConfigMap) SourceDeletion() error {
 		if ctrlutil.ContainsFinalizer(&cp, syncFinalizer) {
 			log.Info("need to remove finalizer from copy", "name", cp.Name, "namespace", cp.Namespace)
 			ctrlutil.RemoveFinalizer(&cp, syncFinalizer)
+			delete(cp.Labels, sourceLabelNamespace)
+			log.Info("remove labels from copy", "name", cp.Name, "namespace", cp.Namespace)
 			if err := ks.Update(ks.Context, &cp); err != nil {
 				log.Info("unable to remove finalizer from copy in namespace " + cp.Namespace)
 				errs = append(errs, fmt.Errorf("unable to remove finalizer from copy in namespace %s", cp.Namespace))

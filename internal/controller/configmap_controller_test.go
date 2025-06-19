@@ -223,6 +223,14 @@ var _ = Describe("ConfigMap Controller\n", func() {
 				}, timeout, interval).Should(BeTrue())
 			}
 
+			By("Verifying that source label is removed from copies")
+			for _, t := range testCases {
+				Eventually(func() bool {
+					tc.GetConfigMap(src.name, t.name, t.configMap)
+					_, ok := t.configMap.Labels[sourceLabelNamespace]
+					return !ok
+				}, timeout, interval).Should(BeTrue())
+			}
 		})
 	})
 	Context("When copy configMap is deleted", func() {

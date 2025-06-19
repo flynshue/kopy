@@ -38,8 +38,8 @@ jobs:
       - name: Prepare kopy
         run: |
           go mod tidy
-          make docker-build IMG=kopy:v0.0.4
-          kind load docker-image kopy:v0.0.4
+          make docker-build IMG=kopy:v0.0.5
+          kind load docker-image kopy:v0.0.5
 
       - name: Install Helm
         run: |
@@ -87,7 +87,7 @@ jobs:
           helm install --atomic my-release ./dist/chart/ --create-namespace \
           --namespace kopy \
           --set controllerManager.container.image.repository=kopy \
-          --set controllerManager.container.image.tag=v0.0.4
+          --set controllerManager.container.image.tag=v0.0.5
 
       - name: Check Helm release status
         run: |
